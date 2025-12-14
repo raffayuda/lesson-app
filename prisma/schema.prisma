@@ -10,12 +10,105 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Role {
+  ADMIN
+  STUDENT
+}
+
+enum AttendanceStatus {
+  PRESENT  // Hadir
+  SICK     // Sakit
+  PERMISSION // Izin
+  ABSENT   // Alfa
+}
+
+enum AttendanceMethod {
+  MANUAL
+  QR
+}
+
 model User {
-  id        String   @id @default(uuid())
-  name      String
-  email     String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                String       @id @default(uuid())
+  email             String       @unique
+  password          String
+  name              String
+  role              Role         @default(STUDENT)
+  resetToken        String?
+  resetTokenExpiry  DateTime?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  
+  student           Student?
+  markedAttendances Attendance[] @relation("MarkedBy")
 
   @@map("users")
+}
+
+model Student {
+  id          String       @id @default(uuid())
+  userId      String       @unique
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  studentId   String       @unique // NIS
+  class       String
+  qrCode      String       @unique
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  
+  attendances Attendance[]
+  schedules   ScheduleStudent[]
+
+  @@map("students")
+}
+
+model Schedule {
+  id          String       @id @default(uuid())
+  subject     String       // Mata pelajaran
+  class       String       // Kelas
+  day         String       // Hari (Monday, Tuesday, etc)
+  startTime   String       // Format: "08:00"
+  endTime     String       // Format: "09:30"
+  teacherName String
+  room        String
+  qrCode      String       @unique // QR Code untuk jadwal ini
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  
+  attendances Attendance[]
+  students    ScheduleStudent[]
+
+  @@map("schedules")
+}
+
+// Junction table for many-to-many relationship
+model ScheduleStudent {
+  id         String   @id @default(uuid())
+  scheduleId String
+  studentId  String
+  schedule   Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([scheduleId, studentId])
+  @@map("schedule_students")
+}
+
+model Attendance {
+  id          String           @id @default(uuid())
+  scheduleId  String
+  schedule    Schedule         @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  studentId   String
+  student     Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  status      AttendanceStatus @default(PRESENT)
+  method      AttendanceMethod @default(MANUAL)
+  checkInTime DateTime         @default(now())
+  notes       String?
+  markedById  String?
+  markedBy    User?            @relation("MarkedBy", fields: [markedById], references: [id])
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@map("attendances")
+  @@index([scheduleId])
+  @@index([studentId])
+  @@index([checkInTime])
 }
