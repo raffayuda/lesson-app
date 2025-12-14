@@ -1,0 +1,26 @@
+{
+  "name": "svelte-express-app",
+  "version": "1.0.0",
+  "description": "Simple Svelte + Express application with PostgreSQL",
+  "main": "api/index.js",
+  "scripts": {
+    "dev": "node api/index.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
+    "build": "cd frontend && npm run build",
+    "vercel-build": "prisma generate && prisma migrate deploy && cd frontend && npm install && npm run build"
+  },
+  "keywords": ["svelte", "express", "prisma", "postgresql"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@prisma/client": "^5.7.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "prisma": "^5.7.1"
+  }
+}
