@@ -1024,7 +1024,6 @@ app.get('/api/payments', authenticate, async (req, res) => {
       where,
       select: {
         id: true,
-        studentId: true,
         amount: true,
         payerName: true,
         paymentDate: true,
@@ -1039,7 +1038,7 @@ app.get('/api/payments', authenticate, async (req, res) => {
         student: {
           select: {
             id: true,
-            studentId: true,
+            class: true,
             user: {
               select: { name: true, email: true }
             }
