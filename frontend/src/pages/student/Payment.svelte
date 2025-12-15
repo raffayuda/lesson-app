@@ -210,14 +210,14 @@
 <Layout activePage="/payment" title="Payment">
     <div class="max-w-4xl mx-auto space-y-6">
         <!-- QR Code Section -->
-        <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-xl font-semibold text-gray-900 mb-4 text-center">
+        <div class="bg-white rounded-lg shadow p-6 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+            <h2 class="text-xl dark:text-white font-semibold mb-4 text-center">
                 <i class="fas fa-qrcode mr-2"></i>
                 Scan to Pay
             </h2>
             <div class="flex justify-center mb-4">
                 <img
-                    src="/gopay-qr.png"
+                    src="qris.jpg"
                     alt="GoPay QR Code"
                     class="w-64 h-64 rounded-lg shadow-md"
                 />
@@ -233,8 +233,8 @@
         </div>
 
         <!-- Payment Form -->
-        <div class="bg-white rounded-lg shadow p-6">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">
+        <div class="bg-white rounded-lg shadow p-6 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg dark:text-white font-semibold mb-4">
                 <i class="fas fa-upload mr-2"></i>
                 Submit Payment Proof
             </h3>
@@ -243,7 +243,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label
-                            class="block text-sm font-medium text-gray-700 mb-1"
+                            class="block text-sm font-medium dark:text-gray-300 mb-1"
                             >Amount (Rp)</label
                         >
                         <input
@@ -252,53 +252,53 @@
                             required
                             min="0"
                             step="1000"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                            class="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-primary-500"
                             placeholder="50000"
                         />
                     </div>
 
                     <div>
                         <label
-                            class="block text-sm font-medium text-gray-700 mb-1"
+                            class="block text-sm font-medium dark:text-gray-300 mb-1"
                             >Payer Name</label
                         >
                         <input
                             type="text"
                             bind:value={form.payerName}
                             required
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                            class="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-primary-500"
                             placeholder="Your name"
                         />
                     </div>
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1"
+                    <label class="block text-sm font-medium dark:text-gray-300 mb-1"
                         >Payment Date</label
                     >
                     <input
                         type="date"
                         bind:value={form.paymentDate}
                         required
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                        class="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-primary-500"
                     />
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1"
+                    <label class="block text-sm font-medium dark:text-gray-300 mb-1"
                         >Description</label
                     >
                     <textarea
                         bind:value={form.description}
                         required
                         rows="3"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                        class="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-primary-500"
                         placeholder="e.g., Monthly tuition fee - January 2025"
                     ></textarea>
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1"
+                    <label class="block text-sm font-medium dark:text-gray-300 mb-1"
                         >Upload Proof Image</label
                     >
                     <input
@@ -307,7 +307,7 @@
                         on:change={handleFileSelect}
                         bind:this={fileInput}
                         required
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                        class="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-primary-500"
                     />
                     <p class="text-xs text-gray-500 mt-1">
                         Max file size: 5MB. Supported: JPG, PNG
@@ -317,7 +317,7 @@
                 {#if imagePreview}
                     <div>
                         <label
-                            class="block text-sm font-medium text-gray-700 mb-1"
+                            class="block text-sm font-medium dark:text-gray-300 mb-1"
                             >Preview</label
                         >
                         <img
@@ -345,8 +345,8 @@
         </div>
 
         <!-- Payment History -->
-        <div class="bg-white rounded-lg shadow p-6">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">
+        <div class="bg-white rounded-lg shadow p-6 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-300 mb-4">
                 <i class="fas fa-history mr-2"></i>
                 My Payment History
             </h3>
@@ -356,12 +356,12 @@
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div>
                         <label
-                            class="block text-sm font-medium text-gray-700 mb-1"
+                            class="block text-sm font-medium dark:text-gray-300 mb-1"
                             >Status</label
                         >
                         <select
                             bind:value={filterStatus}
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                            class="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-primary-500 text-sm"
                         >
                             <option value="">All Status</option>
                             <option value="PENDING">Pending</option>
@@ -372,25 +372,25 @@
 
                     <div>
                         <label
-                            class="block text-sm font-medium text-gray-700 mb-1"
+                            class="block text-sm font-medium dark:text-gray-300 mb-1"
                             >Start Date</label
                         >
                         <input
                             type="date"
                             bind:value={filterStartDate}
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                            class="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-primary-500 text-sm"
                         />
                     </div>
 
                     <div>
                         <label
-                            class="block text-sm font-medium text-gray-700 mb-1"
+                            class="block text-sm font-medium dark:text-gray-300 mb-1"
                             >End Date</label
                         >
                         <input
                             type="date"
                             bind:value={filterEndDate}
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                            class="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-primary-500 text-sm"
                         />
                     </div>
                 </div>
@@ -398,7 +398,7 @@
                 {#if filterStatus || filterStartDate || filterEndDate}
                     <button
                         on:click={clearFilters}
-                        class="px-3 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg text-sm"
+                        class="px-3 py-1 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm"
                     >
                         <i class="fas fa-times mr-1"></i>
                         Clear Filters
@@ -418,43 +418,43 @@
                 </div>
             {:else}
                 <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
+                    <table class="min-w-full divide-y  divide-gray-200 dark:divide-gray-700">
+                        <thead class="bg-gray-50 dark:bg-gray-700">
                             <tr>
                                 <th
-                                    class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase"
+                                    class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase"
                                     >Date</th
                                 >
                                 <th
-                                    class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase"
+                                    class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase"
                                     >Amount</th
                                 >
                                 <th
-                                    class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase"
+                                    class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase"
                                     >Description</th
                                 >
                                 <th
-                                    class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase"
+                                    class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300  uppercase"
                                     >Status</th
                                 >
                             </tr>
                         </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
+                        <tbody class="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
                             {#each payments as payment}
-                                <tr class="hover:bg-gray-50">
+                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
                                     <td
-                                        class="px-4 py-3 whitespace-nowrap text-sm text-gray-900"
+                                        class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300"
                                     >
                                         {new Date(
                                             payment.paymentDate,
                                         ).toLocaleDateString()}
                                     </td>
                                     <td
-                                        class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900"
+                                        class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-300"
                                     >
                                         {formatCurrency(payment.amount)}
                                     </td>
-                                    <td class="px-4 py-3 text-sm text-gray-500">
+                                    <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-300">
                                         {payment.description}
                                     </td>
                                     <td class="px-4 py-3 whitespace-nowrap">
@@ -503,7 +503,7 @@
                                     {#if page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)}
                                         <button
                                             on:click={() => goToPage(page)}
-                                            class="px-3 py-1 border rounded-lg text-sm {page ===
+                                            class="px-3 py-1 border rounded-lg text-sm dark:hover:bg-gray-700 {page ===
                                             currentPage
                                                 ? 'bg-primary-600 text-white border-primary-600'
                                                 : 'border-gray-300 hover:bg-gray-50'}"
