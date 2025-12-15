@@ -9,11 +9,13 @@
         { icon: "fa-calendar-alt", label: "Schedules", path: "/schedules" },
         { icon: "fa-users", label: "Students", path: "/students" },
         { icon: "fa-history", label: "History", path: "/history" },
+        { icon: "fa-money-bill", label: "Payments", path: "/payments" },
     ];
 
     const studentMenu = [
         { icon: "fa-qrcode", label: "Scan QR", path: "/" },
         { icon: "fa-history", label: "My Attendance", path: "/attendance" },
+        { icon: "fa-wallet", label: "Payment", path: "/payment" },
     ];
 
     let isMobileMenuOpen = false;

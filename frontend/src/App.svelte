@@ -9,7 +9,9 @@
   import AdminSchedules from "./pages/admin/Schedules.svelte";
   import AdminStudents from "./pages/admin/Students.svelte";
   import AdminHistory from "./pages/admin/History.svelte";
+  import AdminPayments from "./pages/admin/Payments.svelte";
   import StudentScanQR from "./pages/student/ScanQR.svelte";
+  import StudentPayment from "./pages/student/Payment.svelte";
   import Profile from "./pages/Profile.svelte";
 
   onMount(() => {
@@ -24,10 +26,12 @@
           "/schedules": AdminSchedules,
           "/students": AdminStudents,
           "/history": AdminHistory,
+          "/payments": AdminPayments,
           "/profile": Profile,
         }
       : {
           "/": StudentScanQR,
+          "/payment": StudentPayment,
           "/profile": Profile,
         }
     : {

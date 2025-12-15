@@ -1,16 +1,53 @@
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { PrismaClient } = require('@prisma/client');
+const TelegramBot = require('node-telegram-bot-api');
 
 const app = express();
 const prisma = new PrismaClient();
 
+// Telegram Bot Setup
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
+let bot = null;
+
+console.log('🔍 Telegram Config:', {
+  hasToken: !!TELEGRAM_BOT_TOKEN,
+  hasChatId: !!TELEGRAM_CHAT_ID,
+  chatId: TELEGRAM_CHAT_ID
+});
+
+if (TELEGRAM_BOT_TOKEN) {
+  bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
+  console.log('📱 Telegram bot initialized with polling');
+
+  // Handle /start command to get chat ID
+  bot.onText(/\/start/, (msg) => {
+    const chatId = msg.chat.id;
+    const message = `✅ Bot is active!\n\n📋 Your Chat ID: \`${chatId}\`\n\nAdd this to your .env file:\nTELEGRAM_CHAT_ID="${chatId}"`;
+    bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
+    console.log(`📱 Chat ID requested: ${chatId}`);
+  });
+
+  // Handle any text message
+  bot.on('message', (msg) => {
+    if (!msg.text || msg.text.startsWith('/')) return;
+    const chatId = msg.chat.id;
+    console.log(`📱 Message from ${chatId}: ${msg.text}`);
+  });
+} else {
+  console.log('⚠️ Telegram bot not initialized - TELEGRAM_BOT_TOKEN not found');
+}
+
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' })); // Increased limit for base64 images
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
@@ -920,6 +957,253 @@ app.get('/api/stats/today', authenticate, adminOnly, async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch statistics' });
   }
 });
+
+// ==================== PAYMENT ROUTES ====================
+
+// Get payments (Admin: all, Student: own only)
+app.get('/api/payments', authenticate, async (req, res) => {
+  try {
+    const { status, studentId, startDate, endDate } = req.query;
+
+    let where = {};
+
+    // If student, only show their own payments
+    if (req.user.role === 'STUDENT') {
+      const student = await prisma.student.findUnique({
+        where: { userId: req.user.id }
+      });
+      if (!student) {
+        return res.status(404).json({ error: 'Student profile not found' });
+      }
+      where.studentId = student.id;
+    } else if (studentId) {
+      // Admin can filter by student
+      where.studentId = studentId;
+    }
+
+    if (status) {
+      where.status = status;
+    }
+
+    if (startDate || endDate) {
+      where.paymentDate = {};
+      if (startDate) where.paymentDate.gte = new Date(startDate);
+      if (endDate) where.paymentDate.lte = new Date(endDate);
+    }
+
+    const payments = await prisma.payment.findMany({
+      where,
+      include: {
+        student: {
+          include: {
+            user: {
+              select: { name: true, email: true }
+            }
+          }
+        },
+        approver: {
+          select: { name: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    res.json(payments);
+  } catch (error) {
+    console.error('Get payments error:', error);
+    res.status(500).json({ error: 'Failed to fetch payments' });
+  }
+});
+
+// Create payment (Student only)
+app.post('/api/payments', authenticate, async (req, res) => {
+  try {
+    if (req.user.role !== 'STUDENT') {
+      return res.status(403).json({ error: 'Only students can submit payments' });
+    }
+
+    const { amount, payerName, paymentDate, description, proofImage } = req.body;
+
+    if (!amount || !payerName || !paymentDate || !description || !proofImage) {
+      return res.status(400).json({ error: 'All fields are required' });
+    }
+
+    // Get student
+    const student = await prisma.student.findUnique({
+      where: { userId: req.user.id }
+    });
+
+    if (!student) {
+      return res.status(404).json({ error: 'Student profile not found' });
+    }
+
+    const payment = await prisma.payment.create({
+      data: {
+        studentId: student.id,
+        amount: parseFloat(amount),
+        payerName,
+        paymentDate: new Date(paymentDate),
+        description,
+        proofImage, // Base64 string
+        status: 'PENDING'
+      },
+      include: {
+        student: {
+          include: {
+            user: {
+              select: { name: true, email: true }
+            }
+          }
+        }
+      }
+    });
+
+    // Send Telegram notification
+    if (bot && TELEGRAM_CHAT_ID) {
+      try {
+        const message = `
+🔔 *New Payment Submission*
+
+👤 *Student:* ${payment.student.user.name}
+🆔 *Student ID:* ${payment.student.studentId}
+💰 *Amount:* Rp ${payment.amount.toLocaleString('id-ID')}
+👨‍💼 *Payer:* ${payment.payerName}
+📅 *Date:* ${new Date(payment.paymentDate).toLocaleDateString('id-ID')}
+📝 *Description:* ${payment.description}
+⏰ *Submitted:* ${new Date().toLocaleString('id-ID')}
+
+Status: ⏳ *PENDING APPROVAL*
+        `.trim();
+
+        await bot.sendMessage(TELEGRAM_CHAT_ID, message, { parse_mode: 'Markdown' });
+        console.log('✅ Telegram notification sent');
+      } catch (telegramError) {
+        console.error('❌ Telegram notification failed:', telegramError.message);
+        // Don't fail the payment if notification fails
+      }
+    }
+
+    res.status(201).json(payment);
+  } catch (error) {
+    console.error('Create payment error:', error);
+    res.status(500).json({ error: 'Failed to create payment' });
+  }
+});
+
+// Approve payment (Admin only)
+app.put('/api/payments/:id/approve', authenticate, adminOnly, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const payment = await prisma.payment.findUnique({
+      where: { id }
+    });
+
+    if (!payment) {
+      return res.status(404).json({ error: 'Payment not found' });
+    }
+
+    if (payment.status !== 'PENDING') {
+      return res.status(400).json({ error: 'Payment is not pending' });
+    }
+
+    const updated = await prisma.payment.update({
+      where: { id },
+      data: {
+        status: 'APPROVED',
+        approvedBy: req.user.id,
+        approvedAt: new Date(),
+        rejectionReason: null
+      },
+      include: {
+        student: {
+          include: {
+            user: {
+              select: { name: true, email: true }
+            }
+          }
+        },
+        approver: {
+          select: { name: true }
+        }
+      }
+    });
+
+    res.json(updated);
+  } catch (error) {
+    console.error('Approve payment error:', error);
+    res.status(500).json({ error: 'Failed to approve payment' });
+  }
+});
+
+// Reject payment (Admin only)
+app.put('/api/payments/:id/reject', authenticate, adminOnly, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    if (!reason) {
+      return res.status(400).json({ error: 'Rejection reason is required' });
+    }
+
+    const payment = await prisma.payment.findUnique({
+      where: { id }
+    });
+
+    if (!payment) {
+      return res.status(404).json({ error: 'Payment not found' });
+    }
+
+    if (payment.status !== 'PENDING') {
+      return res.status(400).json({ error: 'Payment is not pending' });
+    }
+
+    const updated = await prisma.payment.update({
+      where: { id },
+      data: {
+        status: 'REJECTED',
+        approvedBy: req.user.id,
+        approvedAt: new Date(),
+        rejectionReason: reason
+      },
+      include: {
+        student: {
+          include: {
+            user: {
+              select: { name: true, email: true }
+            }
+          }
+        },
+        approver: {
+          select: { name: true }
+        }
+      }
+    });
+
+    res.json(updated);
+  } catch (error) {
+    console.error('Reject payment error:', error);
+    res.status(500).json({ error: 'Failed to reject payment' });
+  }
+});
+
+// Delete payment (Admin only)
+app.delete('/api/payments/:id', authenticate, adminOnly, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    await prisma.payment.delete({
+      where: { id }
+    });
+
+    res.json({ message: 'Payment deleted successfully' });
+  } catch (error) {
+    console.error('Delete payment error:', error);
+    res.status(500).json({ error: 'Failed to delete payment' });
+  }
+});
+
+// ==================== SERVER STARTUP ====================
 
 // For local development
 if (require.main === module) {

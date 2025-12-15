@@ -27,6 +27,12 @@ enum AttendanceMethod {
   QR
 }
 
+enum PaymentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model User {
   id                String       @id @default(uuid())
   email             String       @unique
@@ -40,6 +46,7 @@ model User {
   
   student           Student?
   markedAttendances Attendance[] @relation("MarkedBy")
+  approvedPayments  Payment[]    @relation("ApprovedBy")
 
   @@map("users")
 }
@@ -56,6 +63,7 @@ model Student {
   
   attendances Attendance[]
   schedules   ScheduleStudent[]
+  payments    Payment[]
 
   @@map("students")
 }
@@ -111,4 +119,30 @@ model Attendance {
   @@index([scheduleId])
   @@index([studentId])
   @@index([checkInTime])
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  studentId       String
+  student         Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  
+  amount          Float
+  payerName       String
+  paymentDate     DateTime
+  description     String
+  proofImage      String        @db.Text // Base64 encoded image
+  
+  status          PaymentStatus @default(PENDING)
+  approvedBy      String?
+  approver        User?         @relation("ApprovedBy", fields: [approvedBy], references: [id])
+  approvedAt      DateTime?
+  rejectionReason String?
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("payments")
+  @@index([studentId])
+  @@index([status])
+  @@index([paymentDate])
 }
