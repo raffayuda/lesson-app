@@ -48,11 +48,7 @@
 
             if (response.ok) {
                 // Update auth store
-                auth.set({
-                    user: data,
-                    token: auth.getToken(),
-                    loading: false,
-                });
+                auth.updateUser(data);
                 message = "Profile updated successfully!";
                 form.currentPassword = "";
                 form.newPassword = "";
@@ -70,8 +66,8 @@
 
 <Layout activePage="/profile" title="Profile Settings">
     <div class="max-w-2xl mx-auto space-y-6">
-        <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-xl font-semibold text-gray-900 mb-6">
+        <div class="bg-white rounded-lg shadow p-6 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+            <h2 class="text-xl font-semibold dark:text-gray-100 mb-6">
                 <i class="fas fa-user-circle mr-2"></i>
                 Edit Profile
             </h2>
@@ -99,26 +95,26 @@
                 class="space-y-6"
             >
                 <div class="space-y-4">
-                    <h3 class="text-sm font-semibold text-gray-700 uppercase">
+                    <h3 class="text-sm font-semibold dark:text-gray-300 uppercase">
                         Basic Information
                     </h3>
 
                     <div>
                         <label
-                            class="block text-sm font-medium text-gray-700 mb-2"
+                            class="block text-sm font-medium dark:text-gray-300 mb-2"
                             >Name</label
                         >
                         <input
                             bind:value={form.name}
                             required
                             disabled={loading}
-                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 disabled:bg-gray-50"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 disabled:bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-primary-500"
                         />
                     </div>
 
                     <div>
                         <label
-                            class="block text-sm font-medium text-gray-700 mb-2"
+                            class="block text-sm font-medium dark:text-gray-300 mb-2"
                             >Email</label
                         >
                         <input
@@ -126,31 +122,31 @@
                             bind:value={form.email}
                             required
                             disabled={loading}
-                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 disabled:bg-gray-50"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 disabled:bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-primary-500"
                         />
                     </div>
 
                     <div>
                         <label
-                            class="block text-sm font-medium text-gray-700 mb-2"
+                            class="block text-sm font-medium dark:text-gray-300 mb-2"
                             >Role</label
                         >
                         <input
                             value={$auth.user?.role}
                             disabled
-                            class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 capitalize"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 capitalize dark:bg-gray-700 dark:border-gray-600"
                         />
                     </div>
                 </div>
 
                 <div class="border-t border-gray-200 pt-6 space-y-4">
-                    <h3 class="text-sm font-semibold text-gray-700 uppercase">
+                    <h3 class="text-sm font-semibold dark:text-gray-300 uppercase">
                         Change Password (Optional)
                     </h3>
 
                     <div>
                         <label
-                            class="block text-sm font-medium text-gray-700 mb-2"
+                            class="block text-sm font-medium dark:text-gray-300 mb-2"
                             >Current Password</label
                         >
                         <input
@@ -158,13 +154,13 @@
                             bind:value={form.currentPassword}
                             disabled={loading}
                             placeholder="Enter current password"
-                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 disabled:bg-gray-50"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 disabled:bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-primary-500"
                         />
                     </div>
 
                     <div>
                         <label
-                            class="block text-sm font-medium text-gray-700 mb-2"
+                            class="block text-sm font-medium dark:text-gray-300 mb-2"
                             >New Password</label
                         >
                         <input
@@ -172,13 +168,13 @@
                             bind:value={form.newPassword}
                             disabled={loading}
                             placeholder="Enter new password"
-                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 disabled:bg-gray-50"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 disabled:bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-primary-500"
                         />
                     </div>
 
                     <div>
                         <label
-                            class="block text-sm font-medium text-gray-700 mb-2"
+                            class="block text-sm font-medium dark:text-gray-300 mb-2"
                             >Confirm New Password</label
                         >
                         <input
@@ -186,7 +182,7 @@
                             bind:value={form.confirmPassword}
                             disabled={loading}
                             placeholder="Confirm new password"
-                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 disabled:bg-gray-50"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 disabled:bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-primary-500"
                         />
                     </div>
                 </div>
@@ -194,7 +190,7 @@
                 <div class="flex gap-3 justify-end pt-4">
                     <a
                         href="#/"
-                        class="px-6 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg"
+                        class="px-6 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-300"
                     >
                         Cancel
                     </a>

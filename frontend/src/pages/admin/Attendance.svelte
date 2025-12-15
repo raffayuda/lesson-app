@@ -1,6 +1,7 @@
 <script>
     import Layout from "../../components/Layout.svelte";
     import { auth, API_URL } from "../../stores/auth.js";
+    import { toastStore } from "../../stores/toast.js";
     import { onMount, onDestroy } from "svelte";
     import { Html5Qrcode } from "html5-qrcode";
 
@@ -60,7 +61,7 @@
 
             showModal = true;
         } catch (error) {
-            alert("Error loading data");
+            toastStore.error("Error loading data");
         }
     }
 
@@ -97,7 +98,7 @@
                 }
             }
         } catch (error) {
-            alert("Error marking attendance");
+            toastStore.error("Error marking attendance");
         }
     }
 
@@ -116,7 +117,7 @@
                 () => {},
             );
         } catch (error) {
-            alert("Failed to start camera: " + error.message);
+            toastStore.error("Failed to start camera: " + error.message);
             scanning = false;
         }
     }
@@ -151,13 +152,13 @@
 
             if (response.ok) {
                 attendances = [...attendances, data];
-                alert(`✅ ${data.student.user.name} marked present`);
+                toastStore.success(`✅ ${data.student.user.name} marked present`);
                 await stopQRScanner();
             } else {
-                alert(data.error || "Failed to mark attendance");
+                toastStore.error(data.error || "Failed to mark attendance");
             }
         } catch (error) {
-            alert("Error: " + error.message);
+            toastStore.error("Error: " + error.message);
         }
     }
 

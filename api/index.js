@@ -764,13 +764,26 @@ app.post('/api/attendance/manual', authenticate, adminOnly, async (req, res) => 
       return res.status(400).json({ error: 'Schedule ID, Student ID, and status are required' });
     }
 
-    // Check if already marked
+    // Get today's date range (start and end of day)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    // Check if already marked TODAY using checkInTime
     const existing = await prisma.attendance.findFirst({
-      where: { scheduleId, studentId }
+      where: { 
+        scheduleId, 
+        studentId,
+        checkInTime: {
+          gte: today,
+          lt: tomorrow
+        }
+      }
     });
 
     if (existing) {
-      // Update existing
+      // Update existing attendance for today
       const attendance = await prisma.attendance.update({
         where: { id: existing.id },
         data: { status, notes, markedById: req.user.id },

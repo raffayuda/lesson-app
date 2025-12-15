@@ -1,6 +1,7 @@
 <script>
     import Layout from "../../components/Layout.svelte";
     import { auth, API_URL } from "../../stores/auth.js";
+    import { toastStore } from "../../stores/toast.js";
     import { onMount } from "svelte";
 
     let payments = [];
@@ -114,7 +115,7 @@
         if (file) {
             if (file.size > 5 * 1024 * 1024) {
                 // 5MB limit
-                alert("File size must be less than 5MB");
+                toastStore.error("File size must be less than 5MB");
                 return;
             }
 
@@ -135,7 +136,7 @@
             !form.description ||
             !form.proofImage
         ) {
-            alert("Please fill all fields and upload proof image");
+            toastStore.warning("Please fill all fields and upload proof image");
             return;
         }
 
@@ -151,7 +152,7 @@
             });
 
             if (response.ok) {
-                alert("Payment submitted successfully!");
+                toastStore.success("Payment submitted successfully!");
                 // Reset form
                 form = {
                     amount: "",
@@ -165,10 +166,10 @@
                 fetchPayments();
             } else {
                 const data = await response.json();
-                alert(data.error || "Failed to submit payment");
+                toastStore.error(data.error || "Failed to submit payment");
             }
         } catch (error) {
-            alert("Error: " + error.message);
+            toastStore.error("Error: " + error.message);
         } finally {
             submitting = false;
         }

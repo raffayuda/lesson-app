@@ -1,19 +1,22 @@
 <script>
     import Layout from "../../components/Layout.svelte";
+    import StatsCard from "../../components/StatsCard.svelte";
     import { auth, API_URL } from "../../stores/auth.js";
-    import { onMount, onDestroy } from "svelte";
-    import { Html5Qrcode } from "html5-qrcode";
+    import { toastStore } from "../../stores/toast.js";
+    import { onMount } from "svelte";
+    import QRCode from "qrcode";
 
     let stats = null;
     let schedules = [];
-    let students = [];
-    let attendances = [];
+    let enrolledStudents = [];
+    let attendanceStatuses = {};
     let loading = true;
     let showManualModal = false;
     let showQRModal = false;
     let selectedSchedule = null;
-    let scanner;
-    let scanning = false;
+    let selectedScheduleQR = null;
+    let qrDataUrl = "";
+    let savingAttendance = false;
 
     onMount(async () => {
         await fetchStats();
@@ -52,128 +55,107 @@
 
     async function openManualAttendance(schedule) {
         selectedSchedule = schedule;
+        attendanceStatuses = {};
 
         try {
-            const [studentsRes, attendanceRes] = await Promise.all([
-                fetch(`${API_URL}/schedules/${schedule.id}/students`, {
+            const response = await fetch(
+                `${API_URL}/schedules/${schedule.id}/students`,
+                {
                     headers: { Authorization: `Bearer ${auth.getToken()}` },
-                }),
-                fetch(`${API_URL}/attendance?scheduleId=${schedule.id}`, {
-                    headers: { Authorization: `Bearer ${auth.getToken()}` },
-                }),
-            ]);
-
-            if (studentsRes.ok) students = await studentsRes.json();
-            if (attendanceRes.ok) attendances = await attendanceRes.json();
-
-            showManualModal = true;
-        } catch (error) {
-            alert("Error loading data");
-        }
-    }
-
-    function getStudentStatus(studentId) {
-        const att = attendances.find((a) => a.studentId === studentId);
-        return att?.status || null;
-    }
-
-    async function markAttendance(studentId, status) {
-        try {
-            const response = await fetch(`${API_URL}/attendance/manual`, {
-                method: "POST",
-                headers: {
-                    Authorization: `Bearer ${auth.getToken()}`,
-                    "Content-Type": "application/json",
                 },
-                body: JSON.stringify({
-                    scheduleId: selectedSchedule.id,
-                    studentId,
-                    status,
-                }),
-            });
-
-            if (response.ok) {
-                const att = await response.json();
-                const index = attendances.findIndex(
-                    (a) => a.studentId === studentId,
-                );
-                if (index >= 0) {
-                    attendances[index] = att;
-                } else {
-                    attendances = [...attendances, att];
-                }
-            }
-        } catch (error) {
-            alert("Error marking attendance");
-        }
-    }
-
-    async function openQRAttendance(schedule) {
-        selectedSchedule = schedule;
-        showQRModal = true;
-
-        try {
-            scanner = new Html5Qrcode("qr-reader-dashboard");
-            scanning = true;
-
-            await scanner.start(
-                { facingMode: "environment" },
-                { fps: 10, qrbox: { width: 250, height: 250 } },
-                async (qrCode) => {
-                    await handleQRScan(qrCode);
-                },
-                () => {},
             );
-        } catch (error) {
-            alert("Failed to start camera: " + error.message);
-            scanning = false;
-        }
-    }
-
-    async function handleQRScan(qrCode) {
-        try {
-            const response = await fetch(`${API_URL}/attendance/qr`, {
-                method: "POST",
-                headers: {
-                    Authorization: `Bearer ${auth.getToken()}`,
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    qrCode,
-                    scheduleId: selectedSchedule.id,
-                }),
-            });
-
-            const data = await response.json();
 
             if (response.ok) {
-                alert(`✅ ${data.student.user.name} marked present`);
-                await stopQRScanner();
-                await fetchStats();
-            } else {
-                alert(data.error || "Failed to mark attendance");
+                enrolledStudents = await response.json();
+
+                // Fetch existing attendance for today
+                const today = new Date().toISOString().split("T")[0];
+                const attResponse = await fetch(
+                    `${API_URL}/attendance?scheduleId=${schedule.id}&date=${today}`,
+                    {
+                        headers: { Authorization: `Bearer ${auth.getToken()}` },
+                    },
+                );
+
+                if (attResponse.ok) {
+                    const existingAtt = await attResponse.json();
+                    // Pre-fill existing statuses
+                    existingAtt.forEach((att) => {
+                        attendanceStatuses[att.studentId] = att.status;
+                    });
+                    // Trigger reactivity
+                    attendanceStatuses = {...attendanceStatuses};
+                }
+
+                showManualModal = true;
             }
         } catch (error) {
-            alert("Error: " + error.message);
+            toastStore.error("Error loading students: " + error.message);
         }
     }
 
-    async function stopQRScanner() {
-        if (scanner && scanning) {
-            try {
-                await scanner.stop();
-                scanning = false;
-                showQRModal = false;
-            } catch (error) {
-                console.error("Error stopping scanner:", error);
-            }
+    async function saveAttendance() {
+        savingAttendance = true;
+
+        try {
+            const promises = Object.entries(attendanceStatuses).map(
+                ([studentId, status]) => {
+                    return fetch(`${API_URL}/attendance/manual`, {
+                        method: "POST",
+                        headers: {
+                            Authorization: `Bearer ${auth.getToken()}`,
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({
+                            scheduleId: selectedSchedule.id,
+                            studentId,
+                            status,
+                        }),
+                    });
+                },
+            );
+
+            await Promise.all(promises);
+            toastStore.success("Attendance saved successfully!");
+            showManualModal = false;
+            attendanceStatuses = {};
+            await fetchStats();
+        } catch (error) {
+            toastStore.error("Error saving attendance: " + error.message);
+        } finally {
+            savingAttendance = false;
         }
     }
 
-    onDestroy(async () => {
-        await stopQRScanner();
-        if (scanner) scanner.clear();
-    });
+    async function openQRCode(schedule) {
+        selectedScheduleQR = schedule;
+
+        try {
+            qrDataUrl = await QRCode.toDataURL(schedule.qrCode, {
+                width: 300,
+                margin: 2,
+                color: {
+                    dark: "#1e40af",
+                    light: "#ffffff",
+                },
+            });
+            showQRModal = true;
+        } catch (error) {
+            toastStore.error("Failed to generate QR code: " + error.message);
+        }
+    }
+
+    async function downloadQRCode() {
+        try {
+            const link = document.createElement("a");
+            link.download = `QR-${selectedScheduleQR.subject}-${selectedScheduleQR.class}.png`;
+            link.href = qrDataUrl;
+            link.click();
+            toastStore.success("QR Code downloaded!");
+        } catch (error) {
+            toastStore.error("Failed to download QR code");
+        }
+    }
 </script>
 
 <Layout activePage="/" title="Dashboard">
@@ -185,101 +167,41 @@
             </div>
         {:else if stats}
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div
-                    class="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500"
-                >
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-sm font-medium text-gray-600">
-                                Total Students
-                            </p>
-                            <p class="text-3xl font-bold text-gray-900 mt-2">
-                                {stats.totalStudents}
-                            </p>
-                        </div>
-                        <div
-                            class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center"
-                        >
-                            <i class="fas fa-users text-2xl text-blue-600"></i>
-                        </div>
-                    </div>
-                </div>
-
-                <div
-                    class="bg-white rounded-lg shadow p-6 border-l-4 border-green-500"
-                >
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-sm font-medium text-gray-600">
-                                Present Today
-                            </p>
-                            <p class="text-3xl font-bold text-gray-900 mt-2">
-                                {stats.presentCount}
-                            </p>
-                        </div>
-                        <div
-                            class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center"
-                        >
-                            <i
-                                class="fas fa-check-circle text-2xl text-green-600"
-                            ></i>
-                        </div>
-                    </div>
-                </div>
-
-                <div
-                    class="bg-white rounded-lg shadow p-6 border-l-4 border-yellow-500"
-                >
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-sm font-medium text-gray-600">
-                                Sick/Permission
-                            </p>
-                            <p class="text-3xl font-bold text-gray-900 mt-2">
-                                {stats.sickCount + stats.permissionCount}
-                            </p>
-                        </div>
-                        <div
-                            class="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center"
-                        >
-                            <i
-                                class="fas fa-exclamation-triangle text-2xl text-yellow-600"
-                            ></i>
-                        </div>
-                    </div>
-                </div>
-
-                <div
-                    class="bg-white rounded-lg shadow p-6 border-l-4 border-red-500"
-                >
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-sm font-medium text-gray-600">
-                                Absent Today
-                            </p>
-                            <p class="text-3xl font-bold text-gray-900 mt-2">
-                                {stats.absentCount}
-                            </p>
-                        </div>
-                        <div
-                            class="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center"
-                        >
-                            <i class="fas fa-times-circle text-2xl text-red-600"
-                            ></i>
-                        </div>
-                    </div>
-                </div>
+                <StatsCard
+                    title="Total Students"
+                    value={stats.totalStudents}
+                    icon="fa-users"
+                    color="blue"
+                />
+                <StatsCard
+                    title="Present Today"
+                    value={stats.presentCount}
+                    icon="fa-check-circle"
+                    color="green"
+                />
+                <StatsCard
+                    title="Sick/Permission"
+                    value={stats.sickCount + stats.permissionCount}
+                    icon="fa-exclamation-triangle"
+                    color="orange"
+                />
+                <StatsCard
+                    title="Absent Today"
+                    value={stats.absentCount}
+                    icon="fa-times-circle"
+                    color="red"
+                />
             </div>
 
             <!-- Today's Schedules -->
-            <div class="bg-white rounded-lg shadow p-6">
-                <h3 class="text-lg font-semibold text-gray-900 mb-4">
-                    <i class="fas fa-calendar-day mr-2"></i>
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                    <i class="fas fa-calendar-day mr-2 text-primary-600"></i>
                     Today's Schedules
                 </h3>
 
                 {#if schedules.length === 0}
-                    <div class="text-center py-12 text-gray-500">
+                    <div class="text-center py-12 text-gray-500 dark:text-gray-400">
                         <i class="fas fa-calendar-times text-4xl mb-2"></i>
                         <p>No schedules for today</p>
                     </div>
@@ -289,27 +211,27 @@
                     >
                         {#each schedules as schedule}
                             <div
-                                class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                                class="border border-gray-200 dark:border-gray-600 rounded-xl p-4 hover:shadow-lg dark:hover:shadow-xl transition-all duration-300 bg-gradient-to-br from-white to-gray-50 dark:from-gray-700 dark:to-gray-800 hover:scale-[1.02]"
                             >
                                 <div
                                     class="flex items-start justify-between mb-3"
                                 >
                                     <div>
-                                        <h4 class="font-semibold text-gray-900">
+                                        <h4 class="font-semibold text-gray-900 dark:text-white">
                                             {schedule.subject}
                                         </h4>
-                                        <p class="text-sm text-gray-500">
+                                        <p class="text-sm text-gray-500 dark:text-gray-400">
                                             Class: {schedule.class}
                                         </p>
                                     </div>
                                     <span
-                                        class="px-2 py-1 bg-primary-100 text-primary-700 rounded text-xs font-medium"
+                                        class="px-2 py-1 bg-gradient-to-r from-primary-500 to-primary-600 text-white rounded-lg text-xs font-medium shadow-md"
                                     >
                                         {schedule.startTime} - {schedule.endTime}
                                     </span>
                                 </div>
                                 <div
-                                    class="space-y-1 text-sm text-gray-600 mb-4"
+                                    class="space-y-1 text-sm text-gray-600 dark:text-gray-300 mb-4"
                                 >
                                     <p>
                                         <i class="fas fa-chalkboard-teacher w-4"
@@ -325,18 +247,18 @@
                                     <button
                                         on:click={() =>
                                             openManualAttendance(schedule)}
-                                        class="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-2"
+                                        class="flex-1 px-3 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all duration-300"
                                     >
                                         <i class="fas fa-clipboard-list"></i>
                                         <span>Manual</span>
                                     </button>
                                     <button
                                         on:click={() =>
-                                            openQRAttendance(schedule)}
-                                        class="flex-1 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-2"
+                                            openQRCode(schedule)}
+                                        class="flex-1 px-3 py-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all duration-300"
                                     >
                                         <i class="fas fa-qrcode"></i>
-                                        <span>QR Scan</span>
+                                        <span>QR Code</span>
                                     </button>
                                 </div>
                             </div>
@@ -351,24 +273,24 @@
 <!-- Manual Attendance Modal -->
 {#if showManualModal && selectedSchedule}
     <div
-        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+        class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
     >
         <div
-            class="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+            class="bg-white dark:bg-gray-800 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl"
         >
-            <div class="p-6 border-b border-gray-200">
+            <div class="p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-primary-50 to-purple-50 dark:from-gray-700 dark:to-gray-800">
                 <div class="flex items-center justify-between">
                     <div>
-                        <h3 class="text-xl font-semibold">
+                        <h3 class="text-xl font-semibold text-gray-900 dark:text-white">
                             {selectedSchedule.subject} - {selectedSchedule.class}
                         </h3>
-                        <p class="text-sm text-gray-500">
+                        <p class="text-sm text-gray-600 dark:text-gray-300">
                             {selectedSchedule.startTime} - {selectedSchedule.endTime}
                         </p>
                     </div>
                     <button
                         on:click={() => (showManualModal = false)}
-                        class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg text-sm"
+                        class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm transition-colors"
                     >
                         Close
                     </button>
@@ -376,89 +298,84 @@
             </div>
 
             <div class="flex-1 overflow-y-auto p-6">
+                {#if enrolledStudents.length === 0}
+                    <div class="text-center py-8 text-gray-500 dark:text-gray-400">
+                        <i class="fas fa-users text-4xl mb-2"></i>
+                        <p>No students enrolled in this schedule</p>
+                    </div>
+                {:else}
                 <table class="min-w-full">
-                    <thead class="bg-gray-50 sticky top-0">
+                    <thead class="bg-gray-50 dark:bg-gray-700 sticky top-0">
                         <tr>
                             <th
-                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase"
+                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
                                 >Student</th
                             >
                             <th
-                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase"
-                                >ID</th
+                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                                >Class</th
                             >
                             <th
-                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase"
+                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
                                 >Status</th
                             >
                         </tr>
                     </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
-                        {#each students as student}
-                            {@const currentStatus = getStudentStatus(
-                                student.id,
-                            )}
+                    <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                        {#each enrolledStudents as student}
                             <tr>
                                 <td
-                                    class="px-4 py-3 text-sm font-medium text-gray-900"
+                                    class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white"
                                     >{student.user.name}</td
                                 >
-                                <td class="px-4 py-3 text-sm text-gray-500"
-                                    >{student.studentId}</td
+                                <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-300"
+                                    >{student.class}</td
                                 >
                                 <td class="px-4 py-3">
                                     <div class="flex gap-2">
                                         <button
-                                            on:click={() =>
-                                                markAttendance(
-                                                    student.id,
-                                                    "PRESENT",
-                                                )}
-                                            class="px-3 py-1 rounded-lg text-xs font-medium transition-colors {currentStatus ===
-                                            'PRESENT'
-                                                ? 'bg-green-500 text-white'
-                                                : 'bg-green-50 text-green-700 hover:bg-green-100'}"
+                                            type="button"
+                                            on:click={() => {
+                                                attendanceStatuses[student.id] = 'PRESENT';
+                                                attendanceStatuses = {...attendanceStatuses};
+                                            }}
+                                            class="w-10 h-10 rounded-full border-2 flex items-center justify-center font-semibold transition-all {attendanceStatuses[student.id] === 'PRESENT' ? 'bg-green-500 border-green-600 text-white' : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-green-500'}"
+                                            title="Hadir"
                                         >
-                                            Hadir
+                                            H
                                         </button>
                                         <button
-                                            on:click={() =>
-                                                markAttendance(
-                                                    student.id,
-                                                    "SICK",
-                                                )}
-                                            class="px-3 py-1 rounded-lg text-xs font-medium transition-colors {currentStatus ===
-                                            'SICK'
-                                                ? 'bg-yellow-500 text-white'
-                                                : 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100'}"
+                                            type="button"
+                                            on:click={() => {
+                                                attendanceStatuses[student.id] = 'SICK';
+                                                attendanceStatuses = {...attendanceStatuses};
+                                            }}
+                                            class="w-10 h-10 rounded-full border-2 flex items-center justify-center font-semibold transition-all {attendanceStatuses[student.id] === 'SICK' ? 'bg-yellow-500 border-yellow-600 text-white' : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-yellow-500'}"
+                                            title="Sakit"
                                         >
-                                            Sakit
+                                            S
                                         </button>
                                         <button
-                                            on:click={() =>
-                                                markAttendance(
-                                                    student.id,
-                                                    "PERMISSION",
-                                                )}
-                                            class="px-3 py-1 rounded-lg text-xs font-medium transition-colors {currentStatus ===
-                                            'PERMISSION'
-                                                ? 'bg-blue-500 text-white'
-                                                : 'bg-blue-50 text-blue-700 hover:bg-blue-100'}"
+                                            type="button"
+                                            on:click={() => {
+                                                attendanceStatuses[student.id] = 'PERMISSION';
+                                                attendanceStatuses = {...attendanceStatuses};
+                                            }}
+                                            class="w-10 h-10 rounded-full border-2 flex items-center justify-center font-semibold transition-all {attendanceStatuses[student.id] === 'PERMISSION' ? 'bg-blue-500 border-blue-600 text-white' : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-blue-500'}"
+                                            title="Izin"
                                         >
-                                            Izin
+                                            I
                                         </button>
                                         <button
-                                            on:click={() =>
-                                                markAttendance(
-                                                    student.id,
-                                                    "ABSENT",
-                                                )}
-                                            class="px-3 py-1 rounded-lg text-xs font-medium transition-colors {currentStatus ===
-                                            'ABSENT'
-                                                ? 'bg-red-500 text-white'
-                                                : 'bg-red-50 text-red-700 hover:bg-red-100'}"
+                                            type="button"
+                                            on:click={() => {
+                                                attendanceStatuses[student.id] = 'ABSENT';
+                                                attendanceStatuses = {...attendanceStatuses};
+                                            }}
+                                            class="w-10 h-10 rounded-full border-2 flex items-center justify-center font-semibold transition-all {attendanceStatuses[student.id] === 'ABSENT' ? 'bg-red-500 border-red-600 text-white' : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-red-500'}"
+                                            title="Alfa"
                                         >
-                                            Alfa
+                                            A
                                         </button>
                                     </div>
                                 </td>
@@ -466,38 +383,86 @@
                         {/each}
                     </tbody>
                 </table>
+                {/if}
+            </div>
+
+            <div class="p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex justify-end gap-3">
+                <button
+                    on:click={() => (showManualModal = false)}
+                    class="px-6 py-2.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg font-medium transition-all duration-300"
+                >
+                    <i class="fas fa-times mr-2"></i>
+                    Cancel
+                </button>
+                <button
+                    on:click={saveAttendance}
+                    class="px-6 py-2.5 bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white rounded-lg font-medium shadow-md hover:shadow-lg transition-all duration-300 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={savingAttendance ||
+                        Object.keys(attendanceStatuses).length === 0}
+                >
+                    {#if savingAttendance}
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <span>Saving...</span>
+                    {:else}
+                        <i class="fas fa-save"></i>
+                        <span>Save Attendance</span>
+                    {/if}
+                </button>
             </div>
         </div>
     </div>
 {/if}
 
-<!-- QR Scanner Modal -->
-{#if showQRModal && selectedSchedule}
+<!-- QR Code Modal -->
+{#if showQRModal && selectedScheduleQR}
     <div
-        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+        class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn"
+        on:click={() => (showQRModal = false)}
     >
-        <div class="bg-white rounded-lg max-w-2xl w-full p-6">
-            <div class="flex items-center justify-between mb-4">
-                <div>
-                    <h3 class="text-xl font-semibold">
-                        {selectedSchedule.subject} - {selectedSchedule.class}
-                    </h3>
-                    <p class="text-sm text-gray-500">
-                        Scan QR Code to Mark Attendance
-                    </p>
-                </div>
+        <div
+            class="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full p-6 shadow-2xl transform transition-all"
+            on:click|stopPropagation
+        >
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                    <i class="fas fa-qrcode text-primary-600"></i>
+                    Schedule QR Code
+                </h3>
                 <button
-                    on:click={stopQRScanner}
-                    class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm"
+                    on:click={() => (showQRModal = false)}
+                    class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
                 >
-                    <i class="fas fa-stop mr-2"></i>
-                    Stop
+                    <i class="fas fa-times text-xl"></i>
                 </button>
             </div>
-            <div
-                id="qr-reader-dashboard"
-                class="rounded-lg overflow-hidden"
-            ></div>
+            
+            <div class="text-center space-y-4">
+                <div class="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 p-6 rounded-xl inline-block shadow-inner">
+                    <img src={qrDataUrl} alt="QR Code" class="w-64 h-64 rounded-lg" />
+                </div>
+                
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4">
+                    <p class="font-semibold text-gray-900 dark:text-white text-lg">
+                        {selectedScheduleQR.subject}
+                    </p>
+                    <p class="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                        <i class="fas fa-users mr-1"></i>
+                        Class: {selectedScheduleQR.class}
+                    </p>
+                    <p class="text-sm text-gray-600 dark:text-gray-300">
+                        <i class="fas fa-clock mr-1"></i>
+                        {selectedScheduleQR.startTime} - {selectedScheduleQR.endTime}
+                    </p>
+                </div>
+                
+                <button
+                    on:click={downloadQRCode}
+                    class="w-full px-4 py-3 bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white rounded-xl font-medium shadow-md hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-2"
+                >
+                    <i class="fas fa-download"></i>
+                    Download QR Code
+                </button>
+            </div>
         </div>
     </div>
 {/if}

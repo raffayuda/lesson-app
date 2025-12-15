@@ -1,6 +1,9 @@
 <script>
     import Layout from "../../components/Layout.svelte";
+    import Modal from "../../components/Modal.svelte";
+    import LoadingOverlay from "../../components/LoadingOverlay.svelte";
     import { auth, API_URL } from "../../stores/auth.js";
+    import { toastStore } from "../../stores/toast.js";
     import { onMount } from "svelte";
     import * as XLSX from "xlsx";
 
@@ -8,6 +11,17 @@
     let allPayments = []; // For stats calculation
     let students = [];
     let loading = true;
+    let processing = false;
+    let processingMessage = "Processing...";
+    
+    // Confirmation modal
+    let showConfirmModal = false;
+    let confirmModalConfig = {
+        title: "",
+        message: "",
+        onConfirm: () => {},
+        danger: false
+    };
 
     // Pagination
     let currentPage = 1;
@@ -135,10 +149,19 @@
         }
     }
 
-    async function approvePayment(payment) {
-        if (!confirm(`Approve payment from ${payment.student.user.name}?`))
-            return;
+    function confirmApprovePayment(payment) {
+        confirmModalConfig = {
+            title: "Approve Payment",
+            message: `Are you sure you want to approve payment from ${payment.student.user.name}?`,
+            onConfirm: () => approvePayment(payment),
+            danger: false
+        };
+        showConfirmModal = true;
+    }
 
+    async function approvePayment(payment) {
+        processing = true;
+        processingMessage = "Approving payment...";
         try {
             const response = await fetch(
                 `${API_URL}/payments/${payment.id}/approve`,
@@ -149,14 +172,16 @@
             );
 
             if (response.ok) {
-                alert("Payment approved successfully!");
-                fetchData();
+                toastStore.success("Payment approved successfully!");
+                await fetchData();
             } else {
                 const data = await response.json();
-                alert(data.error || "Failed to approve payment");
+                toastStore.error(data.error || "Failed to approve payment");
             }
         } catch (error) {
-            alert("Error: " + error.message);
+            toastStore.error("Error: " + error.message);
+        } finally {
+            processing = false;
         }
     }
 
@@ -168,10 +193,12 @@
 
     async function rejectPayment() {
         if (!rejectionReason.trim()) {
-            alert("Please provide a rejection reason");
+            toastStore.warning("Please provide a rejection reason");
             return;
         }
 
+        processing = true;
+        processingMessage = "Rejecting payment...";
         try {
             const response = await fetch(
                 `${API_URL}/payments/${selectedPayment.id}/reject`,
@@ -186,28 +213,35 @@
             );
 
             if (response.ok) {
-                alert("Payment rejected");
+                toastStore.success("Payment rejected");
                 showRejectModal = false;
                 selectedPayment = null;
                 rejectionReason = "";
-                fetchData();
+                await fetchData();
             } else {
                 const data = await response.json();
-                alert(data.error || "Failed to reject payment");
+                toastStore.error(data.error || "Failed to reject payment");
             }
         } catch (error) {
-            alert("Error: " + error.message);
+            toastStore.error("Error: " + error.message);
+        } finally {
+            processing = false;
         }
     }
 
-    async function deletePayment(payment) {
-        if (
-            !confirm(
-                `Delete payment from ${payment.student.user.name}? This cannot be undone.`,
-            )
-        )
-            return;
+    function confirmDeletePayment(payment) {
+        confirmModalConfig = {
+            title: "Delete Payment",
+            message: `Delete payment from ${payment.student.user.name}? This action cannot be undone.`,
+            onConfirm: () => deletePayment(payment),
+            danger: true
+        };
+        showConfirmModal = true;
+    }
 
+    async function deletePayment(payment) {
+        processing = true;
+        processingMessage = "Deleting payment...";
         try {
             const response = await fetch(`${API_URL}/payments/${payment.id}`, {
                 method: "DELETE",
@@ -215,14 +249,16 @@
             });
 
             if (response.ok) {
-                alert("Payment deleted");
-                fetchData();
+                toastStore.success("Payment deleted");
+                await fetchData();
             } else {
                 const data = await response.json();
-                alert(data.error || "Failed to delete payment");
+                toastStore.error(data.error || "Failed to delete payment");
             }
         } catch (error) {
-            alert("Error: " + error.message);
+            toastStore.error("Error: " + error.message);
+        } finally {
+            processing = false;
         }
     }
 
@@ -320,7 +356,7 @@
         <div
             class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
         >
-            <h2 class="text-2xl font-bold text-gray-900">
+            <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
                 <i class="fas fa-money-bill mr-2"></i>
                 Payment Management
             </h2>
@@ -335,46 +371,46 @@
 
         <!-- Stats Cards -->
         <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <div class="bg-white rounded-lg shadow p-4 text-center">
-                <p class="text-2xl font-bold text-gray-900">{stats.total}</p>
+            <div class="bg-white rounded-lg shadow p-4 text-center border-l-4 border-blue-500 dark:border-blue-400 dark:bg-gray-800">
+                <p class="text-2xl font-bold text-gray-900 dark:text-white">{stats.total}</p>
                 <p class="text-xs text-gray-500 mt-1">Total</p>
             </div>
             <div
-                class="bg-white rounded-lg shadow p-4 text-center border-l-4 border-yellow-500"
+                class="bg-white rounded-lg shadow p-4 text-center border-l-4 border-yellow-500 dark:border-yellow-400 dark:bg-gray-800"
             >
                 <p class="text-2xl font-bold text-yellow-600">
                     {stats.pending}
                 </p>
-                <p class="text-xs text-gray-500 mt-1">Pending</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Pending</p>
             </div>
             <div
-                class="bg-white rounded-lg shadow p-4 text-center border-l-4 border-green-500"
+                class="bg-white rounded-lg shadow p-4 text-center border-l-4 border-green-500 dark:border-green-400 dark:bg-gray-800"
             >
                 <p class="text-2xl font-bold text-green-600">
                     {stats.approved}
                 </p>
-                <p class="text-xs text-gray-500 mt-1">Approved</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Approved</p>
             </div>
             <div
-                class="bg-white rounded-lg shadow p-4 text-center border-l-4 border-red-500"
+                class="bg-white rounded-lg shadow p-4 text-center border-l-4 border-red-500 dark:border-red-400 dark:bg-gray-800"
             >
                 <p class="text-2xl font-bold text-red-600">{stats.rejected}</p>
-                <p class="text-xs text-gray-500 mt-1">Rejected</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Rejected</p>
             </div>
             <div
-                class="bg-white rounded-lg shadow p-4 text-center border-l-4 border-blue-500"
+                class="bg-white rounded-lg shadow p-4 text-center border-l-4 border-blue-500 dark:border-blue-400 dark:bg-gray-800"
             >
                 <p class="text-lg font-bold text-blue-600">
                     {formatCurrency(stats.totalAmount)}
                 </p>
-                <p class="text-xs text-gray-500 mt-1">Total Approved</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Total Approved</p>
             </div>
         </div>
 
         <!-- Filters -->
-        <div class="bg-white rounded-lg shadow p-6">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">
-                <i class="fas fa-filter mr-2"></i>
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                <i class="fas fa-filter mr-2 text-primary-600"></i>
                 Filters
             </h3>
 
@@ -385,7 +421,7 @@
                     >
                     <select
                         bind:value={filterStatus}
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     >
                         <option value="">All Status</option>
                         <option value="PENDING">Pending</option>
@@ -400,7 +436,7 @@
                     >
                     <select
                         bind:value={filterStudent}
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     >
                         <option value="">All Students</option>
                         {#each students as student}
@@ -418,7 +454,7 @@
                     <input
                         type="date"
                         bind:value={filterStartDate}
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     />
                 </div>
 
@@ -429,7 +465,7 @@
                     <input
                         type="date"
                         bind:value={filterEndDate}
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     />
                 </div>
             </div>
@@ -437,14 +473,14 @@
             <div class="flex gap-3 mt-4">
                 <button
                     on:click={applyFilters}
-                    class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm"
+                    class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                     <i class="fas fa-search mr-2"></i>
                     Apply Filters
                 </button>
                 <button
                     on:click={clearFilters}
-                    class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg text-sm"
+                    class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                     <i class="fas fa-times mr-2"></i>
                     Clear
@@ -453,23 +489,23 @@
         </div>
 
         <!-- Payments Table -->
-        <div class="bg-white rounded-lg shadow overflow-x-auto">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-x-auto border border-gray-200 dark:border-gray-700">
             {#if loading}
                 <div class="flex justify-center py-20">
                     <i class="fas fa-spinner fa-spin text-4xl text-primary-500"
                     ></i>
                 </div>
             {:else if payments.length === 0}
-                <div class="text-center py-20 text-gray-500">
+                <div class="text-center py-20 text-gray-500 dark:text-gray-400">
                     <i class="fas fa-inbox text-4xl mb-2"></i>
                     <p>No payments found</p>
                 </div>
             {:else}
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
+                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead class="bg-gray-50 dark:bg-gray-700">
                         <tr>
                             <th
-                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase"
+                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase"
                                 >Date</th
                             >
                             <th
@@ -494,11 +530,11 @@
                             >
                         </tr>
                     </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
+                    <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                         {#each payments as payment}
-                            <tr class="hover:bg-gray-50">
+                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
                                 <td
-                                    class="px-4 py-3 whitespace-nowrap text-sm text-gray-900"
+                                    class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-white"
                                 >
                                     {new Date(
                                         payment.paymentDate,
@@ -506,20 +542,20 @@
                                 </td>
                                 <td class="px-4 py-3 whitespace-nowrap">
                                     <div
-                                        class="text-sm font-medium text-gray-900"
+                                        class="text-sm font-medium text-gray-900 dark:text-white"
                                     >
                                         {payment.student.user.name}
                                     </div>
-                                    <div class="text-xs text-gray-500">
+                                    <div class="text-xs text-gray-500 dark:text-gray-400">
                                         ID: {payment.student.studentId}
                                     </div>
                                 </td>
                                 <td
-                                    class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900"
+                                    class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white"
                                 >
                                     {formatCurrency(payment.amount)}
                                 </td>
-                                <td class="px-4 py-3 text-sm text-gray-500">
+                                <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
                                     {payment.description}
                                 </td>
                                 <td class="px-4 py-3 whitespace-nowrap">
@@ -531,7 +567,7 @@
                                         {payment.status}
                                     </span>
                                     {#if payment.approver}
-                                        <p class="text-xs text-gray-500 mt-1">
+                                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                             by {payment.approver.name}
                                         </p>
                                     {/if}
@@ -549,7 +585,7 @@
                                     {#if payment.status === "PENDING"}
                                         <button
                                             on:click={() =>
-                                                approvePayment(payment)}
+                                                confirmApprovePayment(payment)}
                                             class="text-green-600 hover:text-green-900"
                                             title="Approve"
                                         >
@@ -565,7 +601,7 @@
                                         </button>
                                     {/if}
                                     <button
-                                        on:click={() => deletePayment(payment)}
+                                        on:click={() => confirmDeletePayment(payment)}
                                         class="text-gray-600 hover:text-gray-900"
                                         title="Delete"
                                     >
@@ -617,7 +653,7 @@
                                         {page}
                                     </button>
                                 {:else if page === currentPage - 2 || page === currentPage + 2}
-                                    <span class="px-2 text-gray-500">...</span>
+                                    <span class="px-2 text-gray-500 dark:text-gray-400">...</span>
                                 {/if}
                             {/each}
 
@@ -652,7 +688,7 @@
             tabindex="-1"
         >
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-xl font-semibold text-gray-900">
+                <h3 class="text-xl font-semibold text-gray-900 dark:text-white">
                     Payment Proof
                 </h3>
                 <button
@@ -666,23 +702,23 @@
             <div class="space-y-4">
                 <div class="grid grid-cols-2 gap-4 text-sm">
                     <div>
-                        <p class="text-gray-500">Student</p>
+                        <p class="text-gray-500 dark:text-gray-400">Student</p>
                         <p class="font-medium">
                             {selectedPayment.student.user.name}
                         </p>
                     </div>
                     <div>
-                        <p class="text-gray-500">Amount</p>
+                        <p class="text-gray-500 dark:text-gray-400">Amount</p>
                         <p class="font-medium">
                             {formatCurrency(selectedPayment.amount)}
                         </p>
                     </div>
                     <div>
-                        <p class="text-gray-500">Payer Name</p>
+                        <p class="text-gray-500 dark:text-gray-400">Payer Name</p>
                         <p class="font-medium">{selectedPayment.payerName}</p>
                     </div>
                     <div>
-                        <p class="text-gray-500">Payment Date</p>
+                        <p class="text-gray-500 dark:text-gray-400">Payment Date</p>
                         <p class="font-medium">
                             {new Date(
                                 selectedPayment.paymentDate,
@@ -733,7 +769,7 @@
                     bind:value={rejectionReason}
                     rows="3"
                     required
-                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500"
                     placeholder="Please provide a reason for rejection..."
                 ></textarea>
             </div>
@@ -745,7 +781,7 @@
                         selectedPayment = null;
                         rejectionReason = "";
                     }}
-                    class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg"
+                    class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg"
                 >
                     Cancel
                 </button>
@@ -760,3 +796,15 @@
         </div>
     </div>
 {/if}
+
+<!-- Confirmation Modal -->
+<Modal
+    bind:show={showConfirmModal}
+    title={confirmModalConfig.title}
+    message={confirmModalConfig.message}
+    danger={confirmModalConfig.danger}
+    on:confirm={confirmModalConfig.onConfirm}
+/>
+
+<!-- Loading Overlay -->
+<LoadingOverlay show={processing} message={processingMessage} />

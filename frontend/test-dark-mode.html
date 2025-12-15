@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dark Mode Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+</head>
+<body class="bg-white dark:bg-gray-900 text-gray-900 dark:text-white min-h-screen p-8 transition-colors">
+    <div class="max-w-2xl mx-auto">
+        <h1 class="text-3xl font-bold mb-6">Dark Mode Toggle Test</h1>
+        
+        <div class="space-y-4">
+            <div class="p-6 bg-gray-100 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+                <p>Current theme: <span id="current-theme" class="font-bold">light</span></p>
+                <p>Document class: <span id="doc-class" class="font-mono">-</span></p>
+                <p>LocalStorage: <span id="local-storage" class="font-mono">-</span></p>
+            </div>
+
+            <button 
+                onclick="toggleTheme()" 
+                class="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors"
+            >
+                Toggle Dark Mode
+            </button>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div class="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Card 1</p>
+                    <p class="text-2xl font-bold">Test</p>
+                </div>
+                <div class="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Card 2</p>
+                    <p class="text-2xl font-bold">Test</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize theme
+        const storedTheme = localStorage.getItem('theme');
+        const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        let currentTheme = storedTheme || (systemPrefersDark ? 'dark' : 'light');
+
+        function applyTheme(theme) {
+            if (theme === 'dark') {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+            updateDisplay();
+        }
+
+        function toggleTheme() {
+            currentTheme = currentTheme === 'light' ? 'dark' : 'light';
+            localStorage.setItem('theme', currentTheme);
+            applyTheme(currentTheme);
+            console.log('Theme toggled to:', currentTheme);
+        }
+
+        function updateDisplay() {
+            document.getElementById('current-theme').textContent = currentTheme;
+            document.getElementById('doc-class').textContent = document.documentElement.className || 'none';
+            document.getElementById('local-storage').textContent = localStorage.getItem('theme') || 'none';
+        }
+
+        // Apply initial theme
+        applyTheme(currentTheme);
+        
+        console.log('Initial theme:', currentTheme);
+        console.log('Document element:', document.documentElement);
+    </script>
+</body>
+</html>

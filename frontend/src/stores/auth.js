@@ -63,6 +63,11 @@ function createAuthStore() {
             set({ user: null, token: null, loading: false });
         },
 
+        updateUser(user) {
+            const token = localStorage.getItem('token');
+            update(state => ({ ...state, user, token }));
+        },
+
         getToken() {
             return localStorage.getItem('token');
         }

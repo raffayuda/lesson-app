@@ -25,7 +25,7 @@
 </script>
 
 <div
-    class="min-h-screen bg-gradient-to-br from-primary-50 to-blue-100 flex items-center justify-center p-4"
+    class="min-h-screen bg-gradient-to-br dark:from-primary-500 dark:to-blue-100 flex items-center justify-center p-4"
 >
     <div class="w-full max-w-md">
         <!-- Logo -->
@@ -35,12 +35,12 @@
             >
                 <i class="fas fa-graduation-cap text-3xl text-white"></i>
             </div>
-            <h1 class="text-3xl font-bold text-gray-900">Attendance System</h1>
-            <p class="text-gray-600 mt-2">Sign in to your account</p>
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">Attendance System</h1>
+            <p class="text-gray-600 dark:text-gray-300 mt-2">Sign in to your account</p>
         </div>
 
         <!-- Login Card -->
-        <div class="bg-white rounded-2xl shadow-xl p-8">
+        <div class="bg-white rounded-2xl shadow-xl p-8 dark:bg-gray-800">
             {#if error}
                 <div
                     class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3"
@@ -55,7 +55,7 @@
                 <div>
                     <label
                         for="email"
-                        class="block text-sm font-medium text-gray-700 mb-2"
+                        class="block text-sm font-medium dark:text-gray-300 mb-2"
                     >
                         <i class="fas fa-envelope mr-2"></i>Email Address
                     </label>
@@ -66,14 +66,14 @@
                         placeholder="Enter your email"
                         required
                         disabled={loading}
-                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all disabled:bg-gray-50 disabled:cursor-not-allowed"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all disabled:bg-gray-50 disabled:cursor-not-allowed dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-primary-500"
                     />
                 </div>
 
                 <div>
                     <label
                         for="password"
-                        class="block text-sm font-medium text-gray-700 mb-2"
+                        class="block text-sm font-medium dark:text-gray-300 mb-2"
                     >
                         <i class="fas fa-lock mr-2"></i>Password
                     </label>
@@ -84,7 +84,7 @@
                         placeholder="Enter your password"
                         required
                         disabled={loading}
-                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all disabled:bg-gray-50 disabled:cursor-not-allowed"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all disabled:bg-gray-50 disabled:cursor-not-allowed dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-primary-500"
                     />
                 </div>
 
@@ -94,11 +94,11 @@
                             type="checkbox"
                             class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                         />
-                        <span class="text-gray-600">Remember me</span>
+                        <span class="text-gray-600 dark:text-gray-300">Remember me</span>
                     </label>
                     <a
                         href="#/forgot-password"
-                        class="text-primary-600 hover:text-primary-700 font-medium"
+                        class="text-primary-600 dark:text-primary-500 hover:text-primary-700 font-medium"
                     >
                         Forgot password?
                     </a>

@@ -161,7 +161,7 @@
     <div class="space-y-6">
         <!-- Header -->
         <div class="flex justify-between items-center">
-            <h2 class="text-2xl font-bold text-gray-900">
+            <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
                 <i class="fas fa-history mr-2"></i>
                 Attendance History
             </h2>
@@ -176,66 +176,66 @@
 
         <!-- Stats Cards -->
         <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-            <div class="bg-white rounded-lg shadow p-4 text-center">
-                <p class="text-2xl font-bold text-gray-900">{stats.total}</p>
-                <p class="text-xs text-gray-500 mt-1">Total</p>
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 text-center border border-gray-200 dark:border-gray-700">
+                <p class="text-2xl font-bold text-gray-900 dark:text-white">{stats.total}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Total</p>
             </div>
             <div
-                class="bg-white rounded-lg shadow p-4 text-center border-l-4 border-green-500"
+                class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 text-center border-l-4 border-green-500"
             >
-                <p class="text-2xl font-bold text-green-600">{stats.present}</p>
-                <p class="text-xs text-gray-500 mt-1">Hadir</p>
+                <p class="text-2xl font-bold text-green-600 dark:text-green-400">{stats.present}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Hadir</p>
             </div>
             <div
-                class="bg-white rounded-lg shadow p-4 text-center border-l-4 border-yellow-500"
+                class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 text-center border-l-4 border-yellow-500"
             >
-                <p class="text-2xl font-bold text-yellow-600">{stats.sick}</p>
-                <p class="text-xs text-gray-500 mt-1">Sakit</p>
+                <p class="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{stats.sick}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Sakit</p>
             </div>
             <div
-                class="bg-white rounded-lg shadow p-4 text-center border-l-4 border-blue-500"
+                class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 text-center border-l-4 border-blue-500"
             >
-                <p class="text-2xl font-bold text-blue-600">
+                <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">
                     {stats.permission}
                 </p>
-                <p class="text-xs text-gray-500 mt-1">Izin</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Izin</p>
             </div>
             <div
-                class="bg-white rounded-lg shadow p-4 text-center border-l-4 border-red-500"
+                class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 text-center border-l-4 border-red-500"
             >
-                <p class="text-2xl font-bold text-red-600">{stats.absent}</p>
-                <p class="text-xs text-gray-500 mt-1">Alfa</p>
+                <p class="text-2xl font-bold text-red-600 dark:text-red-400">{stats.absent}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Alfa</p>
             </div>
             <div
-                class="bg-white rounded-lg shadow p-4 text-center border-l-4 border-purple-500"
+                class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 text-center border-l-4 border-purple-500"
             >
-                <p class="text-2xl font-bold text-purple-600">{stats.manual}</p>
-                <p class="text-xs text-gray-500 mt-1">Manual</p>
+                <p class="text-2xl font-bold text-purple-600 dark:text-purple-400">{stats.manual}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Manual</p>
             </div>
             <div
-                class="bg-white rounded-lg shadow p-4 text-center border-l-4 border-indigo-500"
+                class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 text-center border-l-4 border-indigo-500"
             >
-                <p class="text-2xl font-bold text-indigo-600">{stats.qr}</p>
-                <p class="text-xs text-gray-500 mt-1">QR Code</p>
+                <p class="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{stats.qr}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">QR Code</p>
             </div>
         </div>
 
         <!-- Filters -->
-        <div class="bg-white rounded-lg shadow p-6">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">
-                <i class="fas fa-filter mr-2"></i>
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                <i class="fas fa-filter mr-2 text-primary-600"></i>
                 Filters
             </h3>
 
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1"
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                         >Date</label
                     >
                     <input
                         type="date"
                         bind:value={filterDate}
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     />
                 </div>
 
@@ -245,7 +245,7 @@
                     >
                     <select
                         bind:value={filterSchedule}
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     >
                         <option value="">All Schedules</option>
                         {#each schedules as schedule}
@@ -262,7 +262,7 @@
                     >
                     <select
                         bind:value={filterStudent}
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     >
                         <option value="">All Students</option>
                         {#each students as student}
@@ -279,7 +279,7 @@
                     >
                     <select
                         bind:value={filterStatus}
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     >
                         <option value="">All Status</option>
                         <option value="PRESENT">Hadir</option>
@@ -295,7 +295,7 @@
                     >
                     <select
                         bind:value={filterMethod}
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     >
                         <option value="">All Methods</option>
                         <option value="MANUAL">Manual</option>
@@ -307,14 +307,14 @@
             <div class="flex gap-3 mt-4">
                 <button
                     on:click={applyFilters}
-                    class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm"
+                    class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                     <i class="fas fa-search mr-2"></i>
                     Apply Filters
                 </button>
                 <button
                     on:click={clearFilters}
-                    class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg text-sm"
+                    class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                     <i class="fas fa-times mr-2"></i>
                     Clear
@@ -323,28 +323,28 @@
         </div>
 
         <!-- Table -->
-        <div class="bg-white rounded-lg shadow overflow-hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700">
             {#if loading}
                 <div class="flex justify-center py-20">
                     <i class="fas fa-spinner fa-spin text-4xl text-primary-500"
                     ></i>
                 </div>
             {:else if filteredAttendances.length === 0}
-                <div class="text-center py-20 text-gray-500">
+                <div class="text-center py-20 text-gray-500 dark:text-gray-400">
                     <i class="fas fa-inbox text-4xl mb-2"></i>
                     <p>No attendance records found</p>
                 </div>
             {:else}
                 <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
+                    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <thead class="bg-gray-50 dark:bg-gray-700">
                             <tr>
                                 <th
-                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase"
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase"
                                     >Date & Time</th
                                 >
                                 <th
-                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase"
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase"
                                     >Student</th
                                 >
                                 <th
@@ -365,9 +365,9 @@
                                 >
                             </tr>
                         </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
+                        <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                             {#each filteredAttendances as attendance}
-                                <tr class="hover:bg-gray-50">
+                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                                     <td
                                         class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"
                                     >
@@ -376,7 +376,7 @@
                                                 attendance.checkInTime,
                                             ).toLocaleDateString()}
                                         </div>
-                                        <div class="text-xs text-gray-500">
+                                        <div class="text-xs text-gray-500 dark:text-gray-400">
                                             {new Date(
                                                 attendance.checkInTime,
                                             ).toLocaleTimeString()}
@@ -388,15 +388,15 @@
                                         >
                                             {attendance.student.user.name}
                                         </div>
-                                        <div class="text-xs text-gray-500">
+                                        <div class="text-xs text-gray-500 dark:text-gray-400">
                                             ID: {attendance.student.studentId}
                                         </div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
-                                        <div class="text-sm text-gray-900">
+                                        <div class="text-sm text-gray-900 dark:text-white">
                                             {attendance.schedule.subject}
                                         </div>
-                                        <div class="text-xs text-gray-500">
+                                        <div class="text-xs text-gray-500 dark:text-gray-400">
                                             Class: {attendance.schedule.class}
                                         </div>
                                     </td>
