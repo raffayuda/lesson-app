@@ -7,9 +7,21 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { PrismaClient } = require('@prisma/client');
 const TelegramBot = require('node-telegram-bot-api');
+const compression = require('compression');
+const NodeCache = require('node-cache');
 
 const app = express();
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL
+    }
+  },
+  log: ['error', 'warn']
+});
+
+// Cache setup (TTL: 5 minutes for static data)
+const cache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
 
 // Telegram Bot Setup
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -45,6 +57,7 @@ if (TELEGRAM_BOT_TOKEN) {
 }
 
 // Middleware
+app.use(compression()); // Compress all responses
 app.use(cors());
 app.use(express.json({ limit: '50mb' })); // Increased limit for base64 images
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
@@ -500,6 +513,14 @@ app.get('/api/schedules/:id/students', authenticate, async (req, res) => {
 app.get('/api/students', authenticate, adminOnly, async (req, res) => {
   try {
     const { class: className } = req.query;
+    const cacheKey = `students_${className || 'all'}`;
+
+    // Check cache first
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      console.log(`✅ Cache hit: ${cacheKey}`);
+      return res.json(cached);
+    }
 
     const where = {};
     if (className) where.class = className;
@@ -516,6 +537,10 @@ app.get('/api/students', authenticate, adminOnly, async (req, res) => {
       },
       orderBy: { createdAt: 'desc' }
     });
+
+    // Cache the result
+    cache.set(cacheKey, students);
+    console.log(`💾 Cached: ${cacheKey}`);
 
     res.json(students);
   } catch (error) {
@@ -557,18 +582,15 @@ app.get('/api/students/:id', authenticate, async (req, res) => {
 // Create student (also creates user account)
 app.post('/api/students', authenticate, adminOnly, async (req, res) => {
   try {
-    const { name, email, studentId, class: className, password } = req.body;
+    const { name, email, class: className, password } = req.body;
 
-    if (!name || !email || !studentId || !className) {
-      return res.status(400).json({ error: 'Name, email, student ID, and class are required' });
+    if (!name || !email || !className) {
+      return res.status(400).json({ error: 'Name, email, and class are required' });
     }
 
-    // Generate password if not provided
-    const userPassword = password || `student${studentId}`;
+    // Generate password if not provided (use email prefix)
+    const userPassword = password || `student${email.split('@')[0]}`;
     const hashedPassword = await bcrypt.hash(userPassword, 10);
-
-    // Generate QR code
-    const qrCode = generateQRCode(studentId, name);
 
     // Create user and student in transaction
     const result = await prisma.$transaction(async (tx) => {
@@ -584,9 +606,7 @@ app.post('/api/students', authenticate, adminOnly, async (req, res) => {
       const student = await tx.student.create({
         data: {
           userId: user.id,
-          studentId,
-          class: className,
-          qrCode
+          class: className
         },
         include: {
           user: {
@@ -597,6 +617,11 @@ app.post('/api/students', authenticate, adminOnly, async (req, res) => {
 
       return student;
     });
+
+    // Invalidate students cache
+    cache.del('students_all');
+    cache.del(`students_${className}`);
+    console.log('🗑️ Cache invalidated: students');
 
     res.status(201).json(result);
   } catch (error) {
@@ -614,7 +639,7 @@ app.post('/api/students', authenticate, adminOnly, async (req, res) => {
 app.put('/api/students/:id', authenticate, adminOnly, async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, email, studentId, class: className } = req.body;
+    const { name, email, class: className } = req.body;
 
     const student = await prisma.student.findUnique({
       where: { id },
@@ -636,7 +661,7 @@ app.put('/api/students/:id', authenticate, adminOnly, async (req, res) => {
 
       const updatedStudent = await tx.student.update({
         where: { id },
-        data: { studentId, class: className },
+        data: { class: className },
         include: {
           user: {
             select: { id: true, email: true, name: true }
@@ -652,7 +677,7 @@ app.put('/api/students/:id', authenticate, adminOnly, async (req, res) => {
     console.error('Error updating student:', error);
 
     if (error.code === 'P2002') {
-      return res.status(400).json({ error: 'Email or Student ID already exists' });
+      return res.status(400).json({ error: 'Email already exists' });
     }
 
     res.status(500).json({ error: 'Failed to update student' });
@@ -963,7 +988,7 @@ app.get('/api/stats/today', authenticate, adminOnly, async (req, res) => {
 // Get payments (Admin: all, Student: own only)
 app.get('/api/payments', authenticate, async (req, res) => {
   try {
-    const { status, studentId, startDate, endDate } = req.query;
+    const { status, studentId, startDate, endDate, page = 1, limit = 20 } = req.query;
 
     let where = {};
 
@@ -991,11 +1016,30 @@ app.get('/api/payments', authenticate, async (req, res) => {
       if (endDate) where.paymentDate.lte = new Date(endDate);
     }
 
+    // Get total count for pagination
+    const total = await prisma.payment.count({ where });
+
+    // Fetch payments with pagination and WITHOUT proofImage (lazy load)
     const payments = await prisma.payment.findMany({
       where,
-      include: {
+      select: {
+        id: true,
+        studentId: true,
+        amount: true,
+        payerName: true,
+        paymentDate: true,
+        description: true,
+        // proofImage: false, // Exclude for performance
+        status: true,
+        approvedBy: true,
+        approvedAt: true,
+        rejectionReason: true,
+        createdAt: true,
+        updatedAt: true,
         student: {
-          include: {
+          select: {
+            id: true,
+            studentId: true,
             user: {
               select: { name: true, email: true }
             }
@@ -1005,13 +1049,58 @@ app.get('/api/payments', authenticate, async (req, res) => {
           select: { name: true }
         }
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
+      take: parseInt(limit),
+      skip: (parseInt(page) - 1) * parseInt(limit)
     });
 
-    res.json(payments);
+    res.json({
+      data: payments,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        totalPages: Math.ceil(total / parseInt(limit))
+      }
+    });
   } catch (error) {
     console.error('Get payments error:', error);
     res.status(500).json({ error: 'Failed to fetch payments' });
+  }
+});
+
+// Get payment proof image (lazy load)
+app.get('/api/payments/:id/proof', authenticate, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const payment = await prisma.payment.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        proofImage: true,
+        studentId: true
+      }
+    });
+
+    if (!payment) {
+      return res.status(404).json({ error: 'Payment not found' });
+    }
+
+    // Check authorization
+    if (req.user.role === 'STUDENT') {
+      const student = await prisma.student.findUnique({
+        where: { userId: req.user.id }
+      });
+      if (student.id !== payment.studentId) {
+        return res.status(403).json({ error: 'Unauthorized' });
+      }
+    }
+
+    res.json({ proofImage: payment.proofImage });
+  } catch (error) {
+    console.error('Get proof image error:', error);
+    res.status(500).json({ error: 'Failed to fetch proof image' });
   }
 });
 

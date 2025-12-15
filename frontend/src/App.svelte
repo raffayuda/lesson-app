@@ -11,6 +11,7 @@
   import AdminHistory from "./pages/admin/History.svelte";
   import AdminPayments from "./pages/admin/Payments.svelte";
   import StudentScanQR from "./pages/student/ScanQR.svelte";
+  import StudentAttendance from "./pages/student/Attendance.svelte";
   import StudentPayment from "./pages/student/Payment.svelte";
   import Profile from "./pages/Profile.svelte";
 
@@ -31,6 +32,7 @@
         }
       : {
           "/": StudentScanQR,
+          "/attendance": StudentAttendance,
           "/payment": StudentPayment,
           "/profile": Profile,
         }

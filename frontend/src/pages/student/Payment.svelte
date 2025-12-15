@@ -4,8 +4,19 @@
     import { onMount } from "svelte";
 
     let payments = [];
+    let allPayments = []; // For filtering
     let loading = false;
     let submitting = false;
+
+    // Pagination
+    let currentPage = 1;
+    let limit = 5;
+    let totalPages = 1;
+
+    // Filters
+    let filterStatus = "";
+    let filterStartDate = "";
+    let filterEndDate = "";
 
     // Form data
     let form = {
@@ -30,12 +41,71 @@
                 headers: { Authorization: `Bearer ${auth.getToken()}` },
             });
             if (response.ok) {
-                payments = await response.json();
+                const result = await response.json();
+                // Handle pagination response structure
+                allPayments = result.data || result;
+                applyFiltersAndPagination();
             }
         } catch (error) {
             console.error("Error fetching payments:", error);
         } finally {
             loading = false;
+        }
+    }
+
+    function applyFiltersAndPagination() {
+        let filtered = [...allPayments];
+
+        // Apply filters
+        if (filterStatus) {
+            filtered = filtered.filter((p) => p.status === filterStatus);
+        }
+        if (filterStartDate) {
+            filtered = filtered.filter(
+                (p) => new Date(p.paymentDate) >= new Date(filterStartDate),
+            );
+        }
+        if (filterEndDate) {
+            const endDate = new Date(filterEndDate);
+            endDate.setHours(23, 59, 59);
+            filtered = filtered.filter(
+                (p) => new Date(p.paymentDate) <= endDate,
+            );
+        }
+
+        // Calculate pagination
+        totalPages = Math.ceil(filtered.length / limit);
+        const start = (currentPage - 1) * limit;
+        const end = start + limit;
+        payments = filtered.slice(start, end);
+    }
+
+    function clearFilters() {
+        filterStatus = "";
+        filterStartDate = "";
+        filterEndDate = "";
+        currentPage = 1;
+        applyFiltersAndPagination();
+    }
+
+    function goToPage(page) {
+        if (page >= 1 && page <= totalPages) {
+            currentPage = page;
+            applyFiltersAndPagination();
+        }
+    }
+
+    function nextPage() {
+        if (currentPage < totalPages) {
+            currentPage++;
+            applyFiltersAndPagination();
+        }
+    }
+
+    function prevPage() {
+        if (currentPage > 1) {
+            currentPage--;
+            applyFiltersAndPagination();
         }
     }
 
@@ -127,6 +197,12 @@
             style: "currency",
             currency: "IDR",
         }).format(amount);
+    }
+
+    // Reactive: re-apply filters when filter values change
+    $: if (filterStatus || filterStartDate || filterEndDate) {
+        currentPage = 1;
+        applyFiltersAndPagination();
     }
 </script>
 
@@ -274,6 +350,61 @@
                 My Payment History
             </h3>
 
+            <!-- Filters -->
+            <div class="mb-4 space-y-3">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                        <label
+                            class="block text-sm font-medium text-gray-700 mb-1"
+                            >Status</label
+                        >
+                        <select
+                            bind:value={filterStatus}
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                        >
+                            <option value="">All Status</option>
+                            <option value="PENDING">Pending</option>
+                            <option value="APPROVED">Approved</option>
+                            <option value="REJECTED">Rejected</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label
+                            class="block text-sm font-medium text-gray-700 mb-1"
+                            >Start Date</label
+                        >
+                        <input
+                            type="date"
+                            bind:value={filterStartDate}
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                        />
+                    </div>
+
+                    <div>
+                        <label
+                            class="block text-sm font-medium text-gray-700 mb-1"
+                            >End Date</label
+                        >
+                        <input
+                            type="date"
+                            bind:value={filterEndDate}
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                        />
+                    </div>
+                </div>
+
+                {#if filterStatus || filterStartDate || filterEndDate}
+                    <button
+                        on:click={clearFilters}
+                        class="px-3 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg text-sm"
+                    >
+                        <i class="fas fa-times mr-1"></i>
+                        Clear Filters
+                    </button>
+                {/if}
+            </div>
+
             {#if loading}
                 <div class="flex justify-center py-8">
                     <i class="fas fa-spinner fa-spin text-3xl text-primary-500"
@@ -345,6 +476,56 @@
                             {/each}
                         </tbody>
                     </table>
+
+                    <!-- Pagination -->
+                    {#if totalPages > 1}
+                        <div
+                            class="px-4 py-3 border-t border-gray-200 flex items-center justify-between"
+                        >
+                            <div class="text-sm text-gray-700">
+                                Page <span class="font-medium"
+                                    >{currentPage}</span
+                                >
+                                of <span class="font-medium">{totalPages}</span>
+                            </div>
+
+                            <div class="flex items-center gap-2">
+                                <button
+                                    on:click={prevPage}
+                                    disabled={currentPage === 1}
+                                    class="px-3 py-1 border border-gray-300 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                                >
+                                    <i class="fas fa-chevron-left"></i>
+                                </button>
+
+                                {#each Array.from({ length: totalPages }, (_, i) => i + 1) as page}
+                                    {#if page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)}
+                                        <button
+                                            on:click={() => goToPage(page)}
+                                            class="px-3 py-1 border rounded-lg text-sm {page ===
+                                            currentPage
+                                                ? 'bg-primary-600 text-white border-primary-600'
+                                                : 'border-gray-300 hover:bg-gray-50'}"
+                                        >
+                                            {page}
+                                        </button>
+                                    {:else if page === currentPage - 2 || page === currentPage + 2}
+                                        <span class="px-2 text-gray-500"
+                                            >...</span
+                                        >
+                                    {/if}
+                                {/each}
+
+                                <button
+                                    on:click={nextPage}
+                                    disabled={currentPage === totalPages}
+                                    class="px-3 py-1 border border-gray-300 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                                >
+                                    <i class="fas fa-chevron-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                    {/if}
                 </div>
             {/if}
         </div>

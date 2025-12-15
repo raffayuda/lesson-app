@@ -5,8 +5,15 @@
     import * as XLSX from "xlsx";
 
     let payments = [];
+    let allPayments = []; // For stats calculation
     let students = [];
     let loading = true;
+
+    // Pagination
+    let currentPage = 1;
+    let limit = 10;
+    let totalPages = 1;
+    let totalPayments = 0;
 
     // Filters
     let filterStatus = "";
@@ -27,16 +34,38 @@
     async function fetchData() {
         loading = true;
         try {
-            const [paymentsRes, studentsRes] = await Promise.all([
-                fetch(`${API_URL}/payments`, {
-                    headers: { Authorization: `Bearer ${auth.getToken()}` },
-                }),
-                fetch(`${API_URL}/students`, {
-                    headers: { Authorization: `Bearer ${auth.getToken()}` },
-                }),
-            ]);
+            const [paymentsRes, allPaymentsRes, studentsRes] =
+                await Promise.all([
+                    fetch(
+                        `${API_URL}/payments?page=${currentPage}&limit=${limit}`,
+                        {
+                            headers: {
+                                Authorization: `Bearer ${auth.getToken()}`,
+                            },
+                        },
+                    ),
+                    // Fetch all payments for stats (without pagination)
+                    fetch(`${API_URL}/payments?limit=1000`, {
+                        headers: { Authorization: `Bearer ${auth.getToken()}` },
+                    }),
+                    fetch(`${API_URL}/students`, {
+                        headers: { Authorization: `Bearer ${auth.getToken()}` },
+                    }),
+                ]);
 
-            if (paymentsRes.ok) payments = await paymentsRes.json();
+            if (paymentsRes.ok) {
+                const result = await paymentsRes.json();
+                payments = result.data || result;
+                if (result.pagination) {
+                    totalPages = result.pagination.totalPages;
+                    totalPayments = result.pagination.total;
+                    currentPage = result.pagination.page;
+                }
+            }
+            if (allPaymentsRes.ok) {
+                const allResult = await allPaymentsRes.json();
+                allPayments = allResult.data || allResult;
+            }
             if (studentsRes.ok) students = await studentsRes.json();
         } catch (error) {
             console.error("Error:", error);
@@ -49,6 +78,8 @@
         loading = true;
         try {
             const params = new URLSearchParams();
+            params.append("page", currentPage.toString());
+            params.append("limit", limit.toString());
             if (filterStatus) params.append("status", filterStatus);
             if (filterStudent) params.append("studentId", filterStudent);
             if (filterStartDate) params.append("startDate", filterStartDate);
@@ -59,7 +90,13 @@
             });
 
             if (response.ok) {
-                payments = await response.json();
+                const result = await response.json();
+                payments = result.data || result;
+                if (result.pagination) {
+                    totalPages = result.pagination.totalPages;
+                    totalPayments = result.pagination.total;
+                    currentPage = result.pagination.page;
+                }
             }
         } catch (error) {
             console.error("Error:", error);
@@ -73,7 +110,29 @@
         filterStudent = "";
         filterStartDate = "";
         filterEndDate = "";
+        currentPage = 1;
         fetchData();
+    }
+
+    function goToPage(page) {
+        if (page >= 1 && page <= totalPages) {
+            currentPage = page;
+            applyFilters();
+        }
+    }
+
+    function nextPage() {
+        if (currentPage < totalPages) {
+            currentPage++;
+            applyFilters();
+        }
+    }
+
+    function prevPage() {
+        if (currentPage > 1) {
+            currentPage--;
+            applyFilters();
+        }
     }
 
     async function approvePayment(payment) {
@@ -167,9 +226,28 @@
         }
     }
 
-    function viewProof(payment) {
+    async function viewProof(payment) {
         selectedPayment = payment;
         showProofModal = true;
+
+        // Lazy load proof image if not already loaded
+        if (!payment.proofImage) {
+            try {
+                const response = await fetch(
+                    `${API_URL}/payments/${payment.id}/proof`,
+                    {
+                        headers: { Authorization: `Bearer ${auth.getToken()}` },
+                    },
+                );
+                if (response.ok) {
+                    const data = await response.json();
+                    payment.proofImage = data.proofImage;
+                    selectedPayment = payment;
+                }
+            } catch (error) {
+                console.error("Error loading proof:", error);
+            }
+        }
     }
 
     function exportToExcel() {
@@ -226,11 +304,11 @@
     }
 
     $: stats = {
-        total: payments.length,
-        pending: payments.filter((p) => p.status === "PENDING").length,
-        approved: payments.filter((p) => p.status === "APPROVED").length,
-        rejected: payments.filter((p) => p.status === "REJECTED").length,
-        totalAmount: payments
+        total: allPayments.length,
+        pending: allPayments.filter((p) => p.status === "PENDING").length,
+        approved: allPayments.filter((p) => p.status === "APPROVED").length,
+        rejected: allPayments.filter((p) => p.status === "REJECTED").length,
+        totalAmount: allPayments
             .filter((p) => p.status === "APPROVED")
             .reduce((sum, p) => sum + p.amount, 0),
     };
@@ -498,6 +576,61 @@
                         {/each}
                     </tbody>
                 </table>
+
+                <!-- Pagination Controls -->
+                {#if totalPages > 1}
+                    <div
+                        class="px-6 py-4 border-t border-gray-200 flex items-center justify-between"
+                    >
+                        <div class="text-sm text-gray-700">
+                            Showing <span class="font-medium"
+                                >{(currentPage - 1) * limit + 1}</span
+                            >
+                            to
+                            <span class="font-medium"
+                                >{Math.min(
+                                    currentPage * limit,
+                                    totalPayments,
+                                )}</span
+                            >
+                            of <span class="font-medium">{totalPayments}</span> payments
+                        </div>
+
+                        <div class="flex items-center gap-2">
+                            <button
+                                on:click={prevPage}
+                                disabled={currentPage === 1}
+                                class="px-3 py-1 border border-gray-300 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                            >
+                                <i class="fas fa-chevron-left"></i>
+                            </button>
+
+                            {#each Array.from({ length: totalPages }, (_, i) => i + 1) as page}
+                                {#if page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)}
+                                    <button
+                                        on:click={() => goToPage(page)}
+                                        class="px-3 py-1 border rounded-lg text-sm {page ===
+                                        currentPage
+                                            ? 'bg-primary-600 text-white border-primary-600'
+                                            : 'border-gray-300 hover:bg-gray-50'}"
+                                    >
+                                        {page}
+                                    </button>
+                                {:else if page === currentPage - 2 || page === currentPage + 2}
+                                    <span class="px-2 text-gray-500">...</span>
+                                {/if}
+                            {/each}
+
+                            <button
+                                on:click={nextPage}
+                                disabled={currentPage === totalPages}
+                                class="px-3 py-1 border border-gray-300 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                            >
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                {/if}
             {/if}
         </div>
     </div>
