@@ -6,17 +6,17 @@
     export let activePage = "/";
 
     const adminMenu = [
-        { icon: "fa-chart-line", label: "Dashboard", path: "/" },
-        { icon: "fa-calendar-alt", label: "Schedules", path: "/schedules" },
-        { icon: "fa-users", label: "Students", path: "/students" },
-        { icon: "fa-history", label: "History", path: "/history" },
-        { icon: "fa-money-bill", label: "Payments", path: "/payments" },
+        { icon: "fa-chart-line", label: "Dasbor", path: "/" },
+        { icon: "fa-calendar-alt", label: "Jadwal", path: "/schedules" },
+        { icon: "fa-users", label: "Siswa", path: "/students" },
+        { icon: "fa-history", label: "Riwayat", path: "/history" },
+        { icon: "fa-money-bill", label: "Pembayaran", path: "/payments" },
     ];
 
     const studentMenu = [
-        { icon: "fa-qrcode", label: "Scan QR", path: "/" },
-        { icon: "fa-history", label: "My Attendance", path: "/attendance" },
-        { icon: "fa-wallet", label: "Payment", path: "/payment" },
+        { icon: "fa-qrcode", label: "Pindai QR", path: "/" },
+        { icon: "fa-history", label: "Kehadiran Saya", path: "/attendance" },
+        { icon: "fa-wallet", label: "Pembayaran", path: "/payment" },
     ];
 
     let isMobileMenuOpen = false;
@@ -62,15 +62,20 @@
         class="h-16 flex items-center justify-center border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-primary-600 to-primary-700 dark:from-primary-700 dark:to-primary-800"
     >
         <div class="flex items-center gap-3">
-            <div class="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+            <div
+                class="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm"
+            >
                 <i class="fas fa-graduation-cap text-2xl text-white"></i>
             </div>
-            <span class="text-xl font-bold text-white">Attendance</span>
+            <span class="text-xl font-bold text-white">Kehadiran</span>
         </div>
     </div>
 
     <!-- Navigation -->
-    <nav class="p-4 space-y-1.5 overflow-y-auto" style="height: calc(100vh - 144px);">
+    <nav
+        class="p-4 space-y-1.5 overflow-y-auto"
+        style="height: calc(100vh - 144px);"
+    >
         {#each menu as item}
             <a
                 href="#{item.path}"
@@ -80,8 +85,17 @@
                     ? 'bg-gradient-to-r from-primary-50 to-primary-100 dark:from-primary-900/30 dark:to-primary-800/30 text-primary-600 dark:text-primary-400 shadow-sm'
                     : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'}"
             >
-                <div class="w-10 h-10 flex items-center justify-center rounded-lg {$location === item.path ? 'bg-primary-100 dark:bg-primary-800/50' : 'bg-gray-100 dark:bg-gray-700 group-hover:bg-gray-200 dark:group-hover:bg-gray-600'} transition-colors">
-                    <i class="fas {item.icon} {$location === item.path ? 'text-primary-600 dark:text-primary-400' : 'text-gray-600 dark:text-gray-400'}"></i>
+                <div
+                    class="w-10 h-10 flex items-center justify-center rounded-lg {$location ===
+                    item.path
+                        ? 'bg-primary-100 dark:bg-primary-800/50'
+                        : 'bg-gray-100 dark:bg-gray-700 group-hover:bg-gray-200 dark:group-hover:bg-gray-600'} transition-colors"
+                >
+                    <i
+                        class="fas {item.icon} {$location === item.path
+                            ? 'text-primary-600 dark:text-primary-400'
+                            : 'text-gray-600 dark:text-gray-400'}"
+                    ></i>
                 </div>
                 <span class="font-medium">{item.label}</span>
             </a>
@@ -99,19 +113,23 @@
                 <i class="fas fa-user text-white"></i>
             </div>
             <div class="flex-1 min-w-0">
-                <p class="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                <p
+                    class="text-sm font-semibold text-gray-900 dark:text-white truncate"
+                >
                     {$auth.user?.name}
                 </p>
-                <p class="text-xs text-gray-500 dark:text-gray-400 truncate">{$auth.user?.role}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 truncate">
+                    {$auth.user?.role}
+                </p>
             </div>
         </div>
-        
+
         <!-- Dark Mode Toggle -->
         <button
             on:click={() => theme.toggle()}
             class="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors text-sm font-medium text-gray-700 dark:text-gray-200"
         >
-            {#if $theme === 'dark'}
+            {#if $theme === "dark"}
                 <i class="fas fa-sun"></i>
                 <span>Light Mode</span>
             {:else}

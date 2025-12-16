@@ -14,14 +14,14 @@
     let submitting = false;
     let processing = false;
     let processingMessage = "Processing...";
-    
+
     // Confirmation modal
     let showConfirmModal = false;
     let confirmModalConfig = {
         title: "",
         message: "",
         onConfirm: () => {},
-        danger: false
+        danger: false,
     };
     let studentToDelete = null;
 
@@ -160,7 +160,7 @@
                 toastStore.success(
                     editingId
                         ? "Student updated successfully!"
-                        : "Student created successfully!"
+                        : "Student created successfully!",
                 );
             } else {
                 const data = await response.json();
@@ -177,9 +177,10 @@
         studentToDelete = id;
         confirmModalConfig = {
             title: "Delete Student",
-            message: "Are you sure you want to delete this student? This action cannot be undone.",
+            message:
+                "Are you sure you want to delete this student? This action cannot be undone.",
             onConfirm: () => deleteStudent(id),
-            danger: true
+            danger: true,
         };
         showConfirmModal = true;
     }
@@ -225,7 +226,7 @@
     };
 </script>
 
-<Layout activePage="/students" title="Students Management">
+<Layout activePage="/students" title="Manajemen Siswa">
     <div class="space-y-6">
         <!-- Header -->
         <div
@@ -234,10 +235,10 @@
             <div>
                 <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
                     <i class="fas fa-users mr-2 text-primary-600"></i>
-                    Students
+                    Siswa
                 </h2>
                 <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    Total: {stats.total} students
+                    Total: {stats.total} siswa
                 </p>
             </div>
             <button
@@ -245,39 +246,45 @@
                 class="px-4 py-2 bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white rounded-xl flex items-center gap-2 shadow-lg hover:shadow-xl transition-all duration-300"
             >
                 <i class="fas fa-plus"></i>
-                <span>Add Student</span>
+                <span>Tambah Siswa</span>
             </button>
         </div>
 
         <!-- Filters -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+        <div
+            class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700"
+        >
+            <h3
+                class="text-lg font-semibold text-gray-900 dark:text-white mb-4"
+            >
                 <i class="fas fa-filter mr-2 text-primary-600"></i>
-                Filters
+                Filter
             </h3>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-                        >Search</label
+                    <label
+                        class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                        >Cari</label
                     >
                     <input
                         type="text"
                         bind:value={searchQuery}
-                        placeholder="Search by name, email, or ID..."
+                        placeholder="Cari berdasarkan nama, email, atau ID..."
                         class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     />
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-                        >Class</label
+                    <label
+                        class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                        >Kelas</label
                     >
                     <select
                         bind:value={filterClass}
                         class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     >
-                        <option value="">All Classes</option>
+                        <option value="">Semua Kelas</option>
                         {#each classes as cls}
                             <option value={cls}>{cls}</option>
                         {/each}
@@ -291,13 +298,15 @@
                     class="mt-3 px-3 py-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm transition-colors"
                 >
                     <i class="fas fa-times mr-1"></i>
-                    Clear Filters
+                    Hapus Filter
                 </button>
             {/if}
         </div>
 
         <!-- Students Table -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-x-auto border border-gray-200 dark:border-gray-700">
+        <div
+            class="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-x-auto border border-gray-200 dark:border-gray-700"
+        >
             {#if loading}
                 <div class="flex justify-center py-20">
                     <i class="fas fa-spinner fa-spin text-4xl text-primary-500"
@@ -306,10 +315,12 @@
             {:else if students.length === 0}
                 <div class="text-center py-20 text-gray-500 dark:text-gray-400">
                     <i class="fas fa-inbox text-4xl mb-2"></i>
-                    <p>No students found</p>
+                    <p>Tidak ada siswa ditemukan</p>
                 </div>
             {:else}
-                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <table
+                    class="min-w-full divide-y divide-gray-200 dark:divide-gray-700"
+                >
                     <thead class="bg-gray-50 dark:bg-gray-700">
                         <tr>
                             <th
@@ -318,7 +329,7 @@
                             >
                             <th
                                 class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase"
-                                >Name</th
+                                >Nama</th
                             >
                             <th
                                 class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase"
@@ -326,21 +337,25 @@
                             >
                             <th
                                 class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase"
-                                >Class</th
+                                >Kelas</th
                             >
                             <th
                                 class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase"
-                                >Attendance</th
+                                >Kehadiran</th
                             >
                             <th
                                 class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase"
-                                >Actions</th
+                                >Aksi</th
                             >
                         </tr>
                     </thead>
-                    <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                    <tbody
+                        class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700"
+                    >
                         {#each students as student}
-                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                            <tr
+                                class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                            >
                                 <td
                                     class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400"
                                 >
@@ -353,7 +368,9 @@
                                 >
                                     {student.user.name}
                                 </td>
-                                <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                                <td
+                                    class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400"
+                                >
                                     {student.user.email}
                                 </td>
                                 <td
@@ -368,7 +385,7 @@
                                 <td
                                     class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400"
                                 >
-                                    {student._count?.attendances || 0} records
+                                    {student._count?.attendances || 0} rekaman
                                 </td>
                                 <td
                                     class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium space-x-2"
@@ -376,7 +393,7 @@
                                     <button
                                         on:click={() => openModal(student)}
                                         class="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
-                                        title="Edit"
+                                        title="Ubah"
                                     >
                                         <i class="fas fa-edit"></i>
                                     </button>
@@ -384,7 +401,7 @@
                                         on:click={() =>
                                             confirmDeleteStudent(student.id)}
                                         class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 transition-colors"
-                                        title="Delete"
+                                        title="Hapus"
                                     >
                                         <i class="fas fa-trash"></i>
                                     </button>
@@ -400,19 +417,19 @@
                         class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between"
                     >
                         <div class="text-sm text-gray-700 dark:text-gray-300">
-                            Showing <span class="font-medium"
+                            Menampilkan <span class="font-medium"
                                 >{(currentPage - 1) * limit + 1}</span
                             >
-                            to
+                            sampai
                             <span class="font-medium"
                                 >{Math.min(
                                     currentPage * limit,
                                     allStudents.length,
                                 )}</span
                             >
-                            of
+                            dari
                             <span class="font-medium">{allStudents.length}</span
-                            > students
+                            > siswa
                         </div>
 
                         <div class="flex items-center gap-2">
@@ -436,7 +453,10 @@
                                         {page}
                                     </button>
                                 {:else if page === currentPage - 2 || page === currentPage + 2}
-                                    <span class="px-2 text-gray-500 dark:text-gray-400">...</span>
+                                    <span
+                                        class="px-2 text-gray-500 dark:text-gray-400"
+                                        >...</span
+                                    >
                                 {/if}
                             {/each}
 
@@ -460,15 +480,20 @@
     <div
         class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
     >
-        <div class="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full p-6 shadow-2xl">
-            <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-                {editingId ? "Edit Student" : "Add Student"}
+        <div
+            class="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full p-6 shadow-2xl"
+        >
+            <h3
+                class="text-xl font-semibold text-gray-900 dark:text-white mb-4"
+            >
+                {editingId ? "Ubah Siswa" : "Tambah Siswa"}
             </h3>
 
             <form on:submit|preventDefault={handleSubmit} class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-                        >Name</label
+                    <label
+                        class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                        >Nama</label
                     >
                     <input
                         type="text"
@@ -479,7 +504,8 @@
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    <label
+                        class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                         >Email</label
                     >
                     <input
@@ -491,8 +517,9 @@
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-                        >Class</label
+                    <label
+                        class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                        >Kelas</label
                     >
                     <input
                         type="text"
@@ -504,21 +531,24 @@
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-                        >Password {editingId ? "(optional)" : ""}</label
+                    <label
+                        class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                        >Kata Sandi {editingId ? "(opsional)" : ""}</label
                     >
                     <input
                         type="password"
                         bind:value={form.password}
                         required={!editingId}
                         placeholder={editingId
-                            ? "Leave empty to keep current"
+                            ? "Kosongkan untuk tetap menggunakan yang lama"
                             : ""}
                         class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     />
                     {#if !editingId}
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            Default: student[email prefix]
+                        <p
+                            class="text-xs text-gray-500 dark:text-gray-400 mt-1"
+                        >
+                            Default: student[awalan email]
                         </p>
                     {/if}
                 </div>
@@ -530,7 +560,7 @@
                         disabled={submitting}
                         class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
-                        Cancel
+                        Batal
                     </button>
                     <button
                         type="submit"
@@ -539,10 +569,10 @@
                     >
                         {#if submitting}
                             <i class="fas fa-spinner fa-spin"></i>
-                            <span>Saving...</span>
+                            <span>Menyimpan...</span>
                         {:else}
                             <i class="fas fa-save"></i>
-                            <span>{editingId ? "Update" : "Create"}</span>
+                            <span>{editingId ? "Perbarui" : "Buat"}</span>
                         {/if}
                     </button>
                 </div>

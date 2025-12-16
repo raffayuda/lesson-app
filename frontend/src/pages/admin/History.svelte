@@ -78,45 +78,81 @@
         fetchData();
     }
 
-    function exportToExcel() {
-        // Prepare data for Excel
-        const data = filteredAttendances.map((att) => ({
-            Date: new Date(att.checkInTime).toLocaleDateString(),
-            Time: new Date(att.checkInTime).toLocaleTimeString(),
-            Student: att.student.user.name,
-            "Student ID": att.student.studentId,
-            Subject: att.schedule.subject,
-            Class: att.schedule.class,
-            Status: getStatusLabel(att.status),
-            Method: att.method,
-            "Marked By": att.markedBy?.name || "-",
-        }));
+    async function exportToExcel() {
+        loading = true;
 
-        // Create workbook and worksheet
-        const wb = XLSX.utils.book_new();
-        const ws = XLSX.utils.json_to_sheet(data);
+        try {
+            // Build params with current filters to get ALL matching data
+            const params = new URLSearchParams();
+            params.append("limit", "10000"); // Get all data, not paginated
 
-        // Set column widths
-        ws["!cols"] = [
-            { wch: 12 }, // Date
-            { wch: 12 }, // Time
-            { wch: 20 }, // Student
-            { wch: 12 }, // Student ID
-            { wch: 15 }, // Subject
-            { wch: 10 }, // Class
-            { wch: 10 }, // Status
-            { wch: 10 }, // Method
-            { wch: 15 }, // Marked By
-        ];
+            // Apply current filters
+            if (filterDate) params.append("date", filterDate);
+            if (filterSchedule) params.append("scheduleId", filterSchedule);
+            if (filterStudent) params.append("studentId", filterStudent);
+            if (filterStatus) params.append("status", filterStatus);
 
-        // Add worksheet to workbook
-        XLSX.utils.book_append_sheet(wb, ws, "Attendance History");
+            const response = await fetch(`${API_URL}/attendance?${params}`, {
+                headers: { Authorization: `Bearer ${auth.getToken()}` },
+            });
 
-        // Generate filename with current date
-        const filename = `attendance-history-${new Date().toISOString().split("T")[0]}.xlsx`;
+            if (!response.ok) {
+                throw new Error("Failed to fetch data for export");
+            }
 
-        // Save file
-        XLSX.writeFile(wb, filename);
+            const exportData = await response.json();
+
+            // Apply client-side method filter if set
+            const filteredData = filterMethod
+                ? exportData.filter((att) => att.method === filterMethod)
+                : exportData;
+
+            // Prepare data for Excel
+            const data = filteredData.map((att) => ({
+                Date: new Date(att.checkInTime).toLocaleDateString(),
+                Time: new Date(att.checkInTime).toLocaleTimeString(),
+                Student: att.student.user.name,
+                "Student ID": att.student.studentId,
+                Subject: att.schedule.subject,
+                Class: att.schedule.class,
+                Status: getStatusLabel(att.status),
+                Method: att.method,
+                "Marked By": att.markedBy?.name || "-",
+            }));
+
+            // Create workbook and worksheet
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(data);
+
+            // Set column widths
+            ws["!cols"] = [
+                { wch: 12 }, // Date
+                { wch: 12 }, // Time
+                { wch: 20 }, // Student
+                { wch: 12 }, // Student ID
+                { wch: 15 }, // Subject
+                { wch: 10 }, // Class
+                { wch: 10 }, // Status
+                { wch: 10 }, // Method
+                { wch: 15 }, // Marked By
+            ];
+
+            // Add worksheet to workbook
+            XLSX.utils.book_append_sheet(wb, ws, "Attendance History");
+
+            // Generate filename with current date
+            const filename = `attendance-history-${new Date().toISOString().split("T")[0]}.xlsx`;
+
+            // Save file
+            XLSX.writeFile(wb, filename);
+
+            console.log(`Exported ${data.length} attendance records to Excel`);
+        } catch (error) {
+            console.error("Export error:", error);
+            alert("Failed to export data: " + error.message);
+        } finally {
+            loading = false;
+        }
     }
 
     function getStatusColor(status) {
@@ -176,21 +212,39 @@
 
         <!-- Stats Cards -->
         <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 text-center border border-gray-200 dark:border-gray-700">
-                <p class="text-2xl font-bold text-gray-900 dark:text-white">{stats.total}</p>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Total</p>
+            <div
+                class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 text-center border border-gray-200 dark:border-gray-700"
+            >
+                <p class="text-2xl font-bold text-gray-900 dark:text-white">
+                    {stats.total}
+                </p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Total
+                </p>
             </div>
             <div
                 class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 text-center border-l-4 border-green-500"
             >
-                <p class="text-2xl font-bold text-green-600 dark:text-green-400">{stats.present}</p>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Hadir</p>
+                <p
+                    class="text-2xl font-bold text-green-600 dark:text-green-400"
+                >
+                    {stats.present}
+                </p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Hadir
+                </p>
             </div>
             <div
                 class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 text-center border-l-4 border-yellow-500"
             >
-                <p class="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{stats.sick}</p>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Sakit</p>
+                <p
+                    class="text-2xl font-bold text-yellow-600 dark:text-yellow-400"
+                >
+                    {stats.sick}
+                </p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Sakit
+                </p>
             </div>
             <div
                 class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 text-center border-l-4 border-blue-500"
@@ -198,38 +252,61 @@
                 <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">
                     {stats.permission}
                 </p>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Izin</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Izin
+                </p>
             </div>
             <div
                 class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 text-center border-l-4 border-red-500"
             >
-                <p class="text-2xl font-bold text-red-600 dark:text-red-400">{stats.absent}</p>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Alfa</p>
+                <p class="text-2xl font-bold text-red-600 dark:text-red-400">
+                    {stats.absent}
+                </p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Alfa
+                </p>
             </div>
             <div
                 class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 text-center border-l-4 border-purple-500"
             >
-                <p class="text-2xl font-bold text-purple-600 dark:text-purple-400">{stats.manual}</p>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Manual</p>
+                <p
+                    class="text-2xl font-bold text-purple-600 dark:text-purple-400"
+                >
+                    {stats.manual}
+                </p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Manual
+                </p>
             </div>
             <div
                 class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 text-center border-l-4 border-indigo-500"
             >
-                <p class="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{stats.qr}</p>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">QR Code</p>
+                <p
+                    class="text-2xl font-bold text-indigo-600 dark:text-indigo-400"
+                >
+                    {stats.qr}
+                </p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    QR Code
+                </p>
             </div>
         </div>
 
         <!-- Filters -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+        <div
+            class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700"
+        >
+            <h3
+                class="text-lg font-semibold text-gray-900 dark:text-white mb-4"
+            >
                 <i class="fas fa-filter mr-2 text-primary-600"></i>
                 Filters
             </h3>
 
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    <label
+                        class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                         >Date</label
                     >
                     <input
@@ -307,23 +384,25 @@
             <div class="flex gap-3 mt-4">
                 <button
                     on:click={applyFilters}
-                    class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    class="px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                     <i class="fas fa-search mr-2"></i>
-                    Apply Filters
+                    Terapkan Filter
                 </button>
                 <button
                     on:click={clearFilters}
-                    class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    class="px-4 py-2 bg-gray-300 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                     <i class="fas fa-times mr-2"></i>
-                    Clear
+                    Hapus Filter
                 </button>
             </div>
         </div>
 
         <!-- Table -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+        <div
+            class="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700"
+        >
             {#if loading}
                 <div class="flex justify-center py-20">
                     <i class="fas fa-spinner fa-spin text-4xl text-primary-500"
@@ -336,7 +415,9 @@
                 </div>
             {:else}
                 <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <table
+                        class="min-w-full divide-y divide-gray-200 dark:divide-gray-700"
+                    >
                         <thead class="bg-gray-50 dark:bg-gray-700">
                             <tr>
                                 <th
@@ -365,9 +446,13 @@
                                 >
                             </tr>
                         </thead>
-                        <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                        <tbody
+                            class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700"
+                        >
                             {#each filteredAttendances as attendance}
-                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                                <tr
+                                    class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                                >
                                     <td
                                         class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"
                                     >
@@ -376,7 +461,9 @@
                                                 attendance.checkInTime,
                                             ).toLocaleDateString()}
                                         </div>
-                                        <div class="text-xs text-gray-500 dark:text-gray-400">
+                                        <div
+                                            class="text-xs text-gray-500 dark:text-gray-400"
+                                        >
                                             {new Date(
                                                 attendance.checkInTime,
                                             ).toLocaleTimeString()}
@@ -388,13 +475,16 @@
                                         >
                                             {attendance.student.user.name}
                                         </div>
-                                        
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
-                                        <div class="text-sm text-gray-900 dark:text-white">
+                                        <div
+                                            class="text-sm text-gray-900 dark:text-white"
+                                        >
                                             {attendance.schedule.subject}
                                         </div>
-                                        <div class="text-xs text-gray-500 dark:text-gray-400">
+                                        <div
+                                            class="text-xs text-gray-500 dark:text-gray-400"
+                                        >
                                             Class: {attendance.schedule.class}
                                         </div>
                                     </td>

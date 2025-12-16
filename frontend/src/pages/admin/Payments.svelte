@@ -13,14 +13,14 @@
     let loading = true;
     let processing = false;
     let processingMessage = "Processing...";
-    
+
     // Confirmation modal
     let showConfirmModal = false;
     let confirmModalConfig = {
         title: "",
         message: "",
         onConfirm: () => {},
-        danger: false
+        danger: false,
     };
 
     // Pagination
@@ -154,7 +154,7 @@
             title: "Approve Payment",
             message: `Are you sure you want to approve payment from ${payment.student.user.name}?`,
             onConfirm: () => approvePayment(payment),
-            danger: false
+            danger: false,
         };
         showConfirmModal = true;
     }
@@ -234,7 +234,7 @@
             title: "Delete Payment",
             message: `Delete payment from ${payment.student.user.name}? This action cannot be undone.`,
             onConfirm: () => deletePayment(payment),
-            danger: true
+            danger: true,
         };
         showConfirmModal = true;
     }
@@ -286,41 +286,77 @@
         }
     }
 
-    function exportToExcel() {
-        const data = payments.map((p) => ({
-            Date: new Date(p.paymentDate).toLocaleDateString(),
-            Student: p.student.user.name,
-            "Student ID": p.student.studentId,
-            "Payer Name": p.payerName,
-            Amount: p.amount,
-            Description: p.description,
-            Status: p.status,
-            "Approved By": p.approver?.name || "-",
-            "Approved At": p.approvedAt
-                ? new Date(p.approvedAt).toLocaleString()
-                : "-",
-            "Rejection Reason": p.rejectionReason || "-",
-        }));
+    async function exportToExcel() {
+        processing = true;
+        processingMessage = "Exporting data to Excel...";
 
-        const wb = XLSX.utils.book_new();
-        const ws = XLSX.utils.json_to_sheet(data);
+        try {
+            // Build params with current filters to get ALL matching data
+            const params = new URLSearchParams();
+            params.append("limit", "10000"); // Get all data, not paginated
 
-        ws["!cols"] = [
-            { wch: 12 },
-            { wch: 20 },
-            { wch: 12 },
-            { wch: 20 },
-            { wch: 15 },
-            { wch: 30 },
-            { wch: 10 },
-            { wch: 15 },
-            { wch: 18 },
-            { wch: 30 },
-        ];
+            // Apply current filters
+            if (filterStatus) params.append("status", filterStatus);
+            if (filterStudent) params.append("studentId", filterStudent);
+            if (filterStartDate) params.append("startDate", filterStartDate);
+            if (filterEndDate) params.append("endDate", filterEndDate);
 
-        XLSX.utils.book_append_sheet(wb, ws, "Payments");
-        const filename = `payments-${new Date().toISOString().split("T")[0]}.xlsx`;
-        XLSX.writeFile(wb, filename);
+            const response = await fetch(`${API_URL}/payments?${params}`, {
+                headers: { Authorization: `Bearer ${auth.getToken()}` },
+            });
+
+            if (!response.ok) {
+                throw new Error("Failed to fetch data for export");
+            }
+
+            const result = await response.json();
+            const exportData = result.data || result;
+
+            // Map data for Excel
+            const data = exportData.map((p) => ({
+                Date: new Date(p.paymentDate).toLocaleDateString(),
+                Student: p.student.user.name,
+                "Student ID": p.student.studentId,
+                "Payer Name": p.payerName,
+                Amount: p.amount,
+                Description: p.description,
+                Status: p.status,
+                "Approved By": p.approver?.name || "-",
+                "Approved At": p.approvedAt
+                    ? new Date(p.approvedAt).toLocaleString()
+                    : "-",
+                "Rejection Reason": p.rejectionReason || "-",
+            }));
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(data);
+
+            ws["!cols"] = [
+                { wch: 12 },
+                { wch: 20 },
+                { wch: 12 },
+                { wch: 20 },
+                { wch: 15 },
+                { wch: 30 },
+                { wch: 10 },
+                { wch: 15 },
+                { wch: 18 },
+                { wch: 30 },
+            ];
+
+            XLSX.utils.book_append_sheet(wb, ws, "Payments");
+            const filename = `payments-${new Date().toISOString().split("T")[0]}.xlsx`;
+            XLSX.writeFile(wb, filename);
+
+            toastStore.success(
+                `Exported ${data.length} payment records to Excel`,
+            );
+        } catch (error) {
+            console.error("Export error:", error);
+            toastStore.error("Failed to export data: " + error.message);
+        } finally {
+            processing = false;
+        }
     }
 
     function getStatusColor(status) {
@@ -350,7 +386,7 @@
     };
 </script>
 
-<Layout activePage="/payments" title="Payment Management">
+<Layout activePage="/payments" title="Manajemen Pembayaran">
     <div class="space-y-6">
         <!-- Header -->
         <div
@@ -358,21 +394,25 @@
         >
             <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
                 <i class="fas fa-money-bill mr-2"></i>
-                Payment Management
+                Manajemen Pembayaran
             </h2>
             <button
                 on:click={exportToExcel}
                 class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center gap-2"
             >
                 <i class="fas fa-file-excel"></i>
-                <span>Export Excel</span>
+                <span>Ekspor Excel</span>
             </button>
         </div>
 
         <!-- Stats Cards -->
         <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <div class="bg-white rounded-lg shadow p-4 text-center border-l-4 border-blue-500 dark:border-blue-400 dark:bg-gray-800">
-                <p class="text-2xl font-bold text-gray-900 dark:text-white">{stats.total}</p>
+            <div
+                class="bg-white rounded-lg shadow p-4 text-center border-l-4 border-blue-500 dark:border-blue-400 dark:bg-gray-800"
+            >
+                <p class="text-2xl font-bold text-gray-900 dark:text-white">
+                    {stats.total}
+                </p>
                 <p class="text-xs text-gray-500 mt-1">Total</p>
             </div>
             <div
@@ -381,7 +421,9 @@
                 <p class="text-2xl font-bold text-yellow-600">
                     {stats.pending}
                 </p>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Pending</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Menunggu
+                </p>
             </div>
             <div
                 class="bg-white rounded-lg shadow p-4 text-center border-l-4 border-green-500 dark:border-green-400 dark:bg-gray-800"
@@ -389,13 +431,17 @@
                 <p class="text-2xl font-bold text-green-600">
                     {stats.approved}
                 </p>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Approved</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Disetujui
+                </p>
             </div>
             <div
                 class="bg-white rounded-lg shadow p-4 text-center border-l-4 border-red-500 dark:border-red-400 dark:bg-gray-800"
             >
                 <p class="text-2xl font-bold text-red-600">{stats.rejected}</p>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Rejected</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Ditolak
+                </p>
             </div>
             <div
                 class="bg-white rounded-lg shadow p-4 text-center border-l-4 border-blue-500 dark:border-blue-400 dark:bg-gray-800"
@@ -403,15 +449,21 @@
                 <p class="text-lg font-bold text-blue-600">
                     {formatCurrency(stats.totalAmount)}
                 </p>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Total Approved</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Total Disetujui
+                </p>
             </div>
         </div>
 
         <!-- Filters -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+        <div
+            class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700"
+        >
+            <h3
+                class="text-lg font-semibold text-gray-900 dark:text-white mb-4"
+            >
                 <i class="fas fa-filter mr-2 text-primary-600"></i>
-                Filters
+                Filter
             </h3>
 
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -423,22 +475,22 @@
                         bind:value={filterStatus}
                         class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     >
-                        <option value="">All Status</option>
-                        <option value="PENDING">Pending</option>
-                        <option value="APPROVED">Approved</option>
-                        <option value="REJECTED">Rejected</option>
+                        <option value="">Semua Status</option>
+                        <option value="PENDING">Menunggu</option>
+                        <option value="APPROVED">Disetujui</option>
+                        <option value="REJECTED">Ditolak</option>
                     </select>
                 </div>
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1"
-                        >Student</label
+                        >Siswa</label
                     >
                     <select
                         bind:value={filterStudent}
                         class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     >
-                        <option value="">All Students</option>
+                        <option value="">Semua Siswa</option>
                         {#each students as student}
                             <option value={student.id}
                                 >{student.user.name} ({student.studentId})</option
@@ -449,7 +501,7 @@
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1"
-                        >Start Date</label
+                        >Tanggal Mulai</label
                     >
                     <input
                         type="date"
@@ -460,7 +512,7 @@
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1"
-                        >End Date</label
+                        >Tanggal Akhir</label
                     >
                     <input
                         type="date"
@@ -473,23 +525,25 @@
             <div class="flex gap-3 mt-4">
                 <button
                     on:click={applyFilters}
-                    class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    class="px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                     <i class="fas fa-search mr-2"></i>
-                    Apply Filters
+                    Terapkan Filter
                 </button>
                 <button
                     on:click={clearFilters}
-                    class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    class="px-4 py-2 bg-gray-300 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                     <i class="fas fa-times mr-2"></i>
-                    Clear
+                    Hapus Filter
                 </button>
             </div>
         </div>
 
         <!-- Payments Table -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-x-auto border border-gray-200 dark:border-gray-700">
+        <div
+            class="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-x-auto border border-gray-200 dark:border-gray-700"
+        >
             {#if loading}
                 <div class="flex justify-center py-20">
                     <i class="fas fa-spinner fa-spin text-4xl text-primary-500"
@@ -498,27 +552,29 @@
             {:else if payments.length === 0}
                 <div class="text-center py-20 text-gray-500 dark:text-gray-400">
                     <i class="fas fa-inbox text-4xl mb-2"></i>
-                    <p>No payments found</p>
+                    <p>Tidak ada pembayaran ditemukan</p>
                 </div>
             {:else}
-                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <table
+                    class="min-w-full divide-y divide-gray-200 dark:divide-gray-700"
+                >
                     <thead class="bg-gray-50 dark:bg-gray-700">
                         <tr>
                             <th
-                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase"
-                                >Date</th
+                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase"
+                                >Tanggal</th
                             >
                             <th
                                 class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase"
-                                >Student</th
+                                >Siswa</th
                             >
                             <th
                                 class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase"
-                                >Amount</th
+                                >Jumlah</th
                             >
                             <th
                                 class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase"
-                                >Description</th
+                                >Deskripsi</th
                             >
                             <th
                                 class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase"
@@ -526,11 +582,13 @@
                             >
                             <th
                                 class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase"
-                                >Actions</th
+                                >Aksi</th
                             >
                         </tr>
                     </thead>
-                    <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                    <tbody
+                        class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700"
+                    >
                         {#each payments as payment}
                             <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
                                 <td
@@ -546,14 +604,15 @@
                                     >
                                         {payment.student.user.name}
                                     </div>
-                                    
                                 </td>
                                 <td
                                     class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white"
                                 >
                                     {formatCurrency(payment.amount)}
                                 </td>
-                                <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                                <td
+                                    class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400"
+                                >
                                     {payment.description}
                                 </td>
                                 <td class="px-4 py-3 whitespace-nowrap">
@@ -565,8 +624,10 @@
                                         {payment.status}
                                     </span>
                                     {#if payment.approver}
-                                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                            by {payment.approver.name}
+                                        <p
+                                            class="text-xs text-gray-500 dark:text-gray-400 mt-1"
+                                        >
+                                            oleh {payment.approver.name}
                                         </p>
                                     {/if}
                                 </td>
@@ -576,7 +637,7 @@
                                     <button
                                         on:click={() => viewProof(payment)}
                                         class="text-blue-600 hover:text-blue-900"
-                                        title="View Proof"
+                                        title="Lihat Bukti"
                                     >
                                         <i class="fas fa-image"></i>
                                     </button>
@@ -585,7 +646,7 @@
                                             on:click={() =>
                                                 confirmApprovePayment(payment)}
                                             class="text-green-600 hover:text-green-900"
-                                            title="Approve"
+                                            title="Setujui"
                                         >
                                             <i class="fas fa-check"></i>
                                         </button>
@@ -593,13 +654,14 @@
                                             on:click={() =>
                                                 openRejectModal(payment)}
                                             class="text-red-600 hover:text-red-900"
-                                            title="Reject"
+                                            title="Tolak"
                                         >
                                             <i class="fas fa-times"></i>
                                         </button>
                                     {/if}
                                     <button
-                                        on:click={() => confirmDeletePayment(payment)}
+                                        on:click={() =>
+                                            confirmDeletePayment(payment)}
                                         class="text-gray-600 hover:text-gray-900"
                                         title="Delete"
                                     >
@@ -651,7 +713,10 @@
                                         {page}
                                     </button>
                                 {:else if page === currentPage - 2 || page === currentPage + 2}
-                                    <span class="px-2 text-gray-500 dark:text-gray-400">...</span>
+                                    <span
+                                        class="px-2 text-gray-500 dark:text-gray-400"
+                                        >...</span
+                                    >
                                 {/if}
                             {/each}
 
@@ -712,11 +777,15 @@
                         </p>
                     </div>
                     <div>
-                        <p class="text-gray-500 dark:text-gray-400">Payer Name</p>
+                        <p class="text-gray-500 dark:text-gray-400">
+                            Payer Name
+                        </p>
                         <p class="font-medium">{selectedPayment.payerName}</p>
                     </div>
                     <div>
-                        <p class="text-gray-500 dark:text-gray-400">Payment Date</p>
+                        <p class="text-gray-500 dark:text-gray-400">
+                            Payment Date
+                        </p>
                         <p class="font-medium">
                             {new Date(
                                 selectedPayment.paymentDate,

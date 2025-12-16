@@ -105,13 +105,10 @@
         applyFiltersAndPagination();
     }
 
-    // Debounced filter application
-    function debouncedFilter() {
-        clearTimeout(filterTimeout);
-        filterTimeout = setTimeout(() => {
-            currentPage = 1;
-            applyFiltersAndPagination();
-        }, 300); // 300ms debounce
+    // Manual filter application
+    function applyFilters() {
+        currentPage = 1;
+        applyFiltersAndPagination();
     }
 
     function goToPage(page) {
@@ -136,12 +133,39 @@
     }
 
     function exportToExcel() {
-        const data = attendances.map((a) => ({
+        // Get ALL filtered data, not just current page
+        let filtered = allAttendances;
+
+        // Apply same filters as applyFiltersAndPagination
+        if (filterStatus) {
+            filtered = filtered.filter((a) => a.status === filterStatus);
+        }
+        if (filterSubject) {
+            filtered = filtered.filter(
+                (a) => a.schedule.subject === filterSubject,
+            );
+        }
+        if (filterStartDate) {
+            const startDate = new Date(filterStartDate);
+            filtered = filtered.filter(
+                (a) => new Date(a.checkInTime) >= startDate,
+            );
+        }
+        if (filterEndDate) {
+            const endDate = new Date(filterEndDate);
+            endDate.setHours(23, 59, 59);
+            filtered = filtered.filter(
+                (a) => new Date(a.checkInTime) <= endDate,
+            );
+        }
+
+        // Map ALL filtered data for Excel
+        const data = filtered.map((a) => ({
             Date: new Date(a.checkInTime).toLocaleDateString(),
             Time: new Date(a.checkInTime).toLocaleTimeString(),
             Subject: a.schedule.subject,
             Class: a.schedule.class,
-            Status: a.status,
+            Status: getStatusLabel(a.status),
             Method: a.method,
         }));
 
@@ -157,9 +181,11 @@
             { wch: 10 },
         ];
 
-        XLSX.utils.book_append_sheet(wb, ws, "My Attendance");
+        XLSX.utils.book_append_sheet(wb, ws, "Kehadiran Saya");
         const filename = `my-attendance-${new Date().toISOString().split("T")[0]}.xlsx`;
         XLSX.writeFile(wb, filename);
+
+        console.log(`Exported ${data.length} attendance records to Excel`);
     }
 
     function getStatusColor(status) {
@@ -203,14 +229,10 @@
                 : 0,
     };
 
-    // Reactive: re-apply filters when filter values change
-    $: if (filterStatus || filterSubject || filterStartDate || filterEndDate) {
-        currentPage = 1;
-        applyFiltersAndPagination();
-    }
+    // Removed automatic reactive filtering - now using manual Apply Filter button
 </script>
 
-<Layout activePage="/attendance" title="My Attendance">
+<Layout activePage="/attendance" title="Kehadiran Saya">
     <div class="space-y-6">
         <!-- Header -->
         <div
@@ -218,7 +240,7 @@
         >
             <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
                 <i class="fas fa-clipboard-check mr-2"></i>
-                My Attendance
+                Kehadiran Saya
             </h2>
             <button
                 on:click={exportToExcel}
@@ -226,15 +248,21 @@
                 class="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg flex items-center gap-2"
             >
                 <i class="fas fa-file-excel"></i>
-                <span>Export Excel</span>
+                <span>Ekspor Excel</span>
             </button>
         </div>
 
         <!-- Stats Cards -->
         <div class="grid grid-cols-2 md:grid-cols-6 gap-4">
-            <div class="bg-white rounded-lg shadow p-4 text-center dark:bg-gray-800 border-l-4 border-gray-500">
-                <p class="text-2xl font-bold text-gray-900 dark:text-white">{stats.total}</p>
-                <p class="text-xs text-gray-500 mt-1 dark:text-gray-400">Total</p>
+            <div
+                class="bg-white rounded-lg shadow p-4 text-center dark:bg-gray-800 border-l-4 border-gray-500"
+            >
+                <p class="text-2xl font-bold text-gray-900 dark:text-white">
+                    {stats.total}
+                </p>
+                <p class="text-xs text-gray-500 mt-1 dark:text-gray-400">
+                    Total
+                </p>
             </div>
             <div
                 class="bg-white rounded-lg shadow p-4 text-center dark:bg-gray-800 border-l-4 border-green-500"
@@ -242,7 +270,9 @@
                 <p class="text-2xl font-bold text-green-600">
                     {stats.present}
                 </p>
-                <p class="text-xs text-gray-500 mt-1 dark:text-gray-400">Hadir</p>
+                <p class="text-xs text-gray-500 mt-1 dark:text-gray-400">
+                    Hadir
+                </p>
             </div>
             <div
                 class="bg-white rounded-lg shadow p-4 text-center dark:bg-gray-800 border-l-4 border-yellow-500"
@@ -262,35 +292,42 @@
                 class="bg-white rounded-lg shadow p-4 text-center border-l-4 border-red-500 dark:bg-gray-800"
             >
                 <p class="text-2xl font-bold text-red-600">{stats.absent}</p>
-                <p class="text-xs text-gray-500 mt-1 dark:text-gray-400">Tidak Hadir</p>
+                <p class="text-xs text-gray-500 mt-1 dark:text-gray-400">
+                    Tidak Hadir
+                </p>
             </div>
             <div
-                class="bg-white rounded-lg shadow p-4 text-center border-l-4 border-indigo-500 dark:bg-gray-800" 
+                class="bg-white rounded-lg shadow p-4 text-center border-l-4 border-indigo-500 dark:bg-gray-800"
             >
                 <p class="text-2xl font-bold text-indigo-600">
                     {stats.rate}%
                 </p>
-                <p class="text-xs text-gray-500 mt-1 dark:text-gray-400">Kehadiran</p>
+                <p class="text-xs text-gray-500 mt-1 dark:text-gray-400">
+                    Kehadiran
+                </p>
             </div>
         </div>
 
         <!-- Filters -->
         <div class="bg-white rounded-lg shadow p-6 dark:bg-gray-800">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4 dark:text-white">
+            <h3
+                class="text-lg font-semibold text-gray-900 mb-4 dark:text-white"
+            >
                 <i class="fas fa-filter mr-2"></i>
-                Filters
+                Filter
             </h3>
 
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-400"
+                    <label
+                        class="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-400"
                         >Status</label
                     >
                     <select
                         bind:value={filterStatus}
                         class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
                     >
-                        <option value="">All Status</option>
+                        <option value="">Semua Status</option>
                         <option value="PRESENT">Hadir</option>
                         <option value="LATE">Terlambat</option>
                         <option value="EXCUSED">Izin</option>
@@ -299,14 +336,15 @@
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-400"
-                        >Subject</label
+                    <label
+                        class="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-400"
+                        >Mata Pelajaran</label
                     >
                     <select
                         bind:value={filterSubject}
                         class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
                     >
-                        <option value="">All Subjects</option>
+                        <option value="">Semua Mata Pelajaran</option>
                         {#each subjects as subject}
                             <option value={subject}>{subject}</option>
                         {/each}
@@ -314,8 +352,9 @@
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-400"
-                        >Start Date</label
+                    <label
+                        class="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-400"
+                        >Tanggal Mulai</label
                     >
                     <input
                         type="date"
@@ -325,8 +364,9 @@
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-400"
-                        >End Date</label
+                    <label
+                        class="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-400"
+                        >Tanggal Akhir</label
                     >
                     <input
                         type="date"
@@ -338,17 +378,26 @@
 
             <div class="flex gap-3 mt-4">
                 <button
+                    on:click={applyFilters}
+                    class="px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-sm"
+                >
+                    <i class="fas fa-search mr-2"></i>
+                    Terapkan Filter
+                </button>
+                <button
                     on:click={clearFilters}
-                    class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg text-sm dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-300"
+                    class="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg text-sm dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-300"
                 >
                     <i class="fas fa-times mr-2"></i>
-                    Clear Filters
+                    Hapus Filter
                 </button>
             </div>
         </div>
 
         <!-- Attendance Table -->
-        <div class="bg-white rounded-lg shadow overflow-x-auto dark:bg-gray-800">
+        <div
+            class="bg-white rounded-lg shadow overflow-x-auto dark:bg-gray-800"
+        >
             {#if loading}
                 <div class="flex justify-center py-20">
                     <i class="fas fa-spinner fa-spin text-4xl text-primary-500"
@@ -357,7 +406,7 @@
             {:else if attendances.length === 0}
                 <div class="text-center py-20 text-gray-500">
                     <i class="fas fa-inbox text-4xl mb-2"></i>
-                    <p>No attendance records found</p>
+                    <p>Tidak ada catatan kehadiran ditemukan</p>
                 </div>
             {:else}
                 <table class="min-w-full divide-y divide-gray-200">
@@ -365,15 +414,15 @@
                         <tr>
                             <th
                                 class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400"
-                                >Date & Time</th
+                                >Tanggal & Waktu</th
                             >
                             <th
                                 class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400"
-                                >Subject</th
+                                >Mata Pelajaran</th
                             >
                             <th
                                 class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400"
-                                >Class</th
+                                >Kelas</th
                             >
                             <th
                                 class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400"
@@ -381,11 +430,13 @@
                             >
                             <th
                                 class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400"
-                                >Method</th
+                                >Metode</th
                             >
                         </tr>
                     </thead>
-                    <tbody class="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
+                    <tbody
+                        class="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700"
+                    >
                         {#each attendances as attendance}
                             <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
                                 <td
@@ -407,7 +458,9 @@
                                 >
                                     {attendance.schedule.subject}
                                 </td>
-                                <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-300">
+                                <td
+                                    class="px-4 py-3 text-sm text-gray-500 dark:text-gray-300"
+                                >
                                     {attendance.schedule.class}
                                 </td>
                                 <td class="px-4 py-3 whitespace-nowrap">
@@ -446,19 +499,19 @@
                         class="px-6 py-4 border-t border-gray-200 flex items-center justify-between"
                     >
                         <div class="text-sm text-gray-700">
-                            Showing <span class="font-medium"
+                            Menampilkan <span class="font-medium"
                                 >{(currentPage - 1) * limit + 1}</span
                             >
-                            to
+                            sampai
                             <span class="font-medium"
                                 >{Math.min(
                                     currentPage * limit,
                                     attendances.length,
                                 )}</span
                             >
-                            of
+                            dari
                             <span class="font-medium">{attendances.length}</span
-                            > records
+                            > rekaman
                         </div>
 
                         <div class="flex items-center gap-2">

@@ -145,7 +145,7 @@
             reader.onload = (e) => {
                 const img = new Image();
                 img.onload = () => {
-                    const canvas = document.createElement('canvas');
+                    const canvas = document.createElement("canvas");
                     let width = img.width;
                     let height = img.height;
 
@@ -164,17 +164,27 @@
 
                     canvas.width = width;
                     canvas.height = height;
-                    const ctx = canvas.getContext('2d');
+                    const ctx = canvas.getContext("2d");
                     ctx.drawImage(img, 0, 0, width, height);
 
                     // Try different quality levels to meet size requirement
                     let quality = 0.8;
-                    let compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
-                    
+                    let compressedDataUrl = canvas.toDataURL(
+                        "image/jpeg",
+                        quality,
+                    );
+
                     // Reduce quality if still too large
-                    while (compressedDataUrl.length > maxSizeMB * 1024 * 1024 * 1.37 && quality > 0.1) {
+                    while (
+                        compressedDataUrl.length >
+                            maxSizeMB * 1024 * 1024 * 1.37 &&
+                        quality > 0.1
+                    ) {
                         quality -= 0.1;
-                        compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+                        compressedDataUrl = canvas.toDataURL(
+                            "image/jpeg",
+                            quality,
+                        );
                     }
 
                     resolve(compressedDataUrl);
@@ -196,7 +206,7 @@
                 return;
             }
 
-            if (!file.type.startsWith('image/')) {
+            if (!file.type.startsWith("image/")) {
                 toastStore.error("Please upload an image file");
                 return;
             }
@@ -204,13 +214,15 @@
             try {
                 // Show loading state
                 imagePreview = "loading";
-                
+
                 // Compress image
                 const compressedImage = await compressImage(file, 2);
                 form.proofImage = compressedImage;
                 imagePreview = compressedImage;
-                
-                toastStore.success("Image uploaded and compressed successfully!");
+
+                toastStore.success(
+                    "Image uploaded and compressed successfully!",
+                );
             } catch (error) {
                 toastStore.error("Failed to process image: " + error.message);
                 imagePreview = "";
@@ -253,7 +265,7 @@
                 };
                 imagePreview = "";
                 if (fileInput) fileInput.value = "";
-                
+
                 // Invalidate cache and refetch
                 dataFetched = false;
                 fetchPayments();
@@ -279,9 +291,9 @@
 
     function getStatusLabel(status) {
         const labels = {
-            PENDING: "Pending",
-            APPROVED: "Approved",
-            REJECTED: "Rejected",
+            PENDING: "Menunggu",
+            APPROVED: "Disetujui",
+            REJECTED: "Ditolak",
         };
         return labels[status] || status;
     }
@@ -299,37 +311,44 @@
     }
 </script>
 
-<Layout activePage="/payment" title="Payment">
+<Layout activePage="/payment" title="Pembayaran">
     <div class="max-w-4xl mx-auto space-y-6">
         <!-- QR Code Section -->
-        <div class="bg-white rounded-lg shadow p-6 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+        <div
+            class="bg-white rounded-lg shadow p-6 dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
+        >
             <h2 class="text-xl dark:text-white font-semibold mb-4 text-center">
                 <i class="fas fa-qrcode mr-2"></i>
-                Scan to Pay
+                Pindai untuk Bayar
             </h2>
             <div class="flex justify-center mb-4">
                 <img
-                    src="../../../public/qris.jpg"
+                    src="qris.jpg"
                     alt="QRIS Payment Code"
                     loading="lazy"
-                    class="w-64 h-64 rounded-lg shadow-md object-contain bg-white"
+                    class="w-fit h-64 rounded-lg shadow-md object-contain bg-white"
                 />
             </div>
             <div
                 class="text-center p-3 bg-blue-50 border border-blue-200 rounded-lg dark:bg-blue-900/20 dark:border-blue-800"
             >
-                <i class="fas fa-info-circle text-blue-600 dark:text-blue-400 mr-2"></i>
+                <i
+                    class="fas fa-info-circle text-blue-600 dark:text-blue-400 mr-2"
+                ></i>
                 <span class="text-sm text-blue-700 dark:text-blue-300"
-                    >Scan QRIS code above with any e-wallet app to make payment</span
+                    >Pindai kode QRIS di atas dengan aplikasi e-wallet untuk
+                    melakukan pembayaran</span
                 >
             </div>
         </div>
 
         <!-- Payment Form -->
-        <div class="bg-white rounded-lg shadow p-6 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+        <div
+            class="bg-white rounded-lg shadow p-6 dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
+        >
             <h3 class="text-lg dark:text-white font-semibold mb-4">
                 <i class="fas fa-upload mr-2"></i>
-                Submit Payment Proof
+                Kirim Bukti Pembayaran
             </h3>
 
             <form on:submit|preventDefault={handleSubmit} class="space-y-4">
@@ -337,7 +356,7 @@
                     <div>
                         <label
                             class="block text-sm font-medium dark:text-gray-300 mb-1"
-                            >Amount (Rp)</label
+                            >Jumlah (Rp)</label
                         >
                         <input
                             type="number"
@@ -353,21 +372,22 @@
                     <div>
                         <label
                             class="block text-sm font-medium dark:text-gray-300 mb-1"
-                            >Payer Name</label
+                            >Nama Pembayar</label
                         >
                         <input
                             type="text"
                             bind:value={form.payerName}
                             required
                             class="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-primary-500"
-                            placeholder="Your name"
+                            placeholder="Nama Anda"
                         />
                     </div>
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium dark:text-gray-300 mb-1"
-                        >Payment Date</label
+                    <label
+                        class="block text-sm font-medium dark:text-gray-300 mb-1"
+                        >Tanggal Pembayaran</label
                     >
                     <input
                         type="date"
@@ -378,21 +398,23 @@
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium dark:text-gray-300 mb-1"
-                        >Description</label
+                    <label
+                        class="block text-sm font-medium dark:text-gray-300 mb-1"
+                        >Deskripsi</label
                     >
                     <textarea
                         bind:value={form.description}
                         required
                         rows="3"
                         class="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-primary-500"
-                        placeholder="e.g., Monthly tuition fee - January 2025"
+                        placeholder="Contoh: Biaya SPP - Januari 2025"
                     ></textarea>
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium dark:text-gray-300 mb-1"
-                        >Upload Proof Image</label
+                    <label
+                        class="block text-sm font-medium dark:text-gray-300 mb-1"
+                        >Unggah Bukti Gambar</label
                     >
                     <input
                         type="file"
@@ -403,7 +425,8 @@
                         class="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-primary-500"
                     />
                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        Max file size: 2MB. Supported: JPG, PNG (will be compressed automatically)
+                        Max file size: 2MB. Supported: JPG, PNG (will be
+                        compressed automatically)
                     </p>
                 </div>
 
@@ -411,12 +434,19 @@
                     <div>
                         <label
                             class="block text-sm font-medium dark:text-gray-300 mb-1"
-                            >Preview</label
+                            >Pratinjau</label
                         >
                         {#if imagePreview === "loading"}
-                            <div class="flex items-center justify-center p-8 border border-gray-300 rounded-lg bg-gray-50 dark:bg-gray-700">
-                                <i class="fas fa-spinner fa-spin text-3xl text-primary-500"></i>
-                                <span class="ml-3 text-sm text-gray-600 dark:text-gray-300">Compressing image...</span>
+                            <div
+                                class="flex items-center justify-center p-8 border border-gray-300 rounded-lg bg-gray-50 dark:bg-gray-700"
+                            >
+                                <i
+                                    class="fas fa-spinner fa-spin text-3xl text-primary-500"
+                                ></i>
+                                <span
+                                    class="ml-3 text-sm text-gray-600 dark:text-gray-300"
+                                    >Mengompresi gambar...</span
+                                >
                             </div>
                         {:else}
                             <img
@@ -436,20 +466,24 @@
                 >
                     {#if submitting}
                         <i class="fas fa-spinner fa-spin mr-2"></i>
-                        Submitting...
+                        Mengirim...
                     {:else}
                         <i class="fas fa-paper-plane mr-2"></i>
-                        Submit Payment
+                        Kirim Pembayaran
                     {/if}
                 </button>
             </form>
         </div>
 
         <!-- Payment History -->
-        <div class="bg-white rounded-lg shadow p-6 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-300 mb-4">
+        <div
+            class="bg-white rounded-lg shadow p-6 dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
+        >
+            <h3
+                class="text-lg font-semibold text-gray-900 dark:text-gray-300 mb-4"
+            >
                 <i class="fas fa-history mr-2"></i>
-                My Payment History
+                Riwayat Pembayaran Saya
             </h3>
 
             <!-- Filters -->
@@ -464,17 +498,17 @@
                             bind:value={filterStatus}
                             class="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-primary-500 text-sm"
                         >
-                            <option value="">All Status</option>
-                            <option value="PENDING">Pending</option>
-                            <option value="APPROVED">Approved</option>
-                            <option value="REJECTED">Rejected</option>
+                            <option value="">Semua Status</option>
+                            <option value="PENDING">Menunggu</option>
+                            <option value="APPROVED">Disetujui</option>
+                            <option value="REJECTED">Ditolak</option>
                         </select>
                     </div>
 
                     <div>
                         <label
                             class="block text-sm font-medium dark:text-gray-300 mb-1"
-                            >Start Date</label
+                            >Tanggal Mulai</label
                         >
                         <input
                             type="date"
@@ -486,7 +520,7 @@
                     <div>
                         <label
                             class="block text-sm font-medium dark:text-gray-300 mb-1"
-                            >End Date</label
+                            >Tanggal Akhir</label
                         >
                         <input
                             type="date"
@@ -519,7 +553,9 @@
                 </div>
             {:else}
                 <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y  divide-gray-200 dark:divide-gray-700">
+                    <table
+                        class="min-w-full divide-y divide-gray-200 dark:divide-gray-700"
+                    >
                         <thead class="bg-gray-50 dark:bg-gray-700">
                             <tr>
                                 <th
@@ -535,14 +571,18 @@
                                     >Description</th
                                 >
                                 <th
-                                    class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300  uppercase"
+                                    class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase"
                                     >Status</th
                                 >
                             </tr>
                         </thead>
-                        <tbody class="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
+                        <tbody
+                            class="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700"
+                        >
                             {#each payments as payment}
-                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                <tr
+                                    class="hover:bg-gray-50 dark:hover:bg-gray-700"
+                                >
                                     <td
                                         class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300"
                                     >
@@ -555,7 +595,9 @@
                                     >
                                         {formatCurrency(payment.amount)}
                                     </td>
-                                    <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-300">
+                                    <td
+                                        class="px-4 py-3 text-sm text-gray-500 dark:text-gray-300"
+                                    >
                                         {payment.description}
                                     </td>
                                     <td class="px-4 py-3 whitespace-nowrap">
