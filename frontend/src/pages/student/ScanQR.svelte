@@ -8,6 +8,7 @@
     let scanning = false;
     let showScanModal = false;
     let isProcessing = false; // Prevent multiple scans
+    let isSubmitting = false; // Loading state for server processing
     let error = "";
     let success = "";
     let recentAttendance = [];
@@ -60,11 +61,11 @@
 
                 await scanner.start(
                     { facingMode: "environment" },
-                    { 
+                    {
                         fps: 30, // Increased from 10 for faster scanning
                         qrbox: { width: 200, height: 200 }, // Smaller box = faster processing
                         aspectRatio: 1.0, // Square aspect ratio
-                        disableFlip: false // Enable flip for better detection
+                        disableFlip: false, // Enable flip for better detection
                     },
                     async (decodedText) => {
                         // Prevent multiple scans with debouncing
@@ -103,6 +104,8 @@
 
     async function handleScan(qrCode) {
         try {
+            isSubmitting = true; // Show loading overlay
+
             const response = await fetch(`${API_URL}/attendance/qr`, {
                 method: "POST",
                 headers: {
@@ -115,19 +118,21 @@
             const data = await response.json();
 
             if (response.ok) {
-                success = `✅ Attendance marked for ${data.schedule.subject} - ${data.schedule.class}`;
+                success = `✅ Kehadiran berhasil dicatat untuk ${data.schedule.subject} - ${data.schedule.class}`;
                 error = "";
-                
+
                 // Invalidate cache and refetch
                 dataFetched = false;
                 await fetchRecentAttendance();
             } else {
-                error = data.error || "Failed to mark attendance";
+                error = data.error || "Gagal mencatat kehadiran";
                 success = "";
             }
         } catch (err) {
-            error = "Failed to mark attendance: " + err.message;
+            error = "Gagal mencatat kehadiran: " + err.message;
             success = "";
+        } finally {
+            isSubmitting = false; // Hide loading overlay
         }
     }
 
@@ -158,8 +163,12 @@
 
 <Layout activePage="/" title="Scan QR Code">
     <div class="max-w-2xl mx-auto space-y-6">
-        <div class="bg-white rounded-lg shadow p-6 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-            <h2 class="text-xl font-semibold text-gray-900 mb-4 dark:text-white">
+        <div
+            class="bg-white rounded-lg shadow p-6 dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
+        >
+            <h2
+                class="text-xl font-semibold text-gray-900 mb-4 dark:text-white"
+            >
                 <i class="fas fa-qrcode mr-2"></i>Scan Schedule QR Code
             </h2>
 
@@ -200,8 +209,12 @@
 
         <!-- Recent Attendance -->
         {#if recentAttendance.length > 0}
-            <div class="bg-white rounded-lg shadow p-6 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                <h3 class="text-lg font-semibold text-gray-900 mb-4 dark:text-white">
+            <div
+                class="bg-white rounded-lg shadow p-6 dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
+            >
+                <h3
+                    class="text-lg font-semibold text-gray-900 mb-4 dark:text-white"
+                >
                     <i class="fas fa-history mr-2"></i>
                     Recent Attendance
                 </h3>
@@ -209,13 +222,17 @@
                 <div class="space-y-3">
                     {#each recentAttendance as attendance}
                         <div
-                            class="flex items-center  justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                            class="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
                         >
                             <div class="flex-1">
-                                <p class="text-sm font-medium text-gray-900 dark:text-white">
+                                <p
+                                    class="text-sm font-medium text-gray-900 dark:text-white"
+                                >
                                     {attendance.schedule.subject}
                                 </p>
-                                <p class="text-xs text-gray-500 dark:text-gray-400">
+                                <p
+                                    class="text-xs text-gray-500 dark:text-gray-400"
+                                >
                                     {attendance.schedule.class} • {new Date(
                                         attendance.checkInTime,
                                     ).toLocaleDateString()}
@@ -257,15 +274,33 @@
     <div
         class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
     >
-        <div class="bg-white rounded-lg max-w-lg w-full p-6">
+        <div class="bg-white rounded-lg max-w-lg w-full p-6 relative">
+            <!-- Loading Overlay -->
+            {#if isSubmitting}
+                <div
+                    class="absolute inset-0 bg-white bg-opacity-95 rounded-lg flex flex-col items-center justify-center z-10"
+                >
+                    <i
+                        class="fas fa-spinner fa-spin text-5xl text-primary-600 mb-4"
+                    ></i>
+                    <p class="text-lg font-semibold text-gray-900">
+                        Memproses kehadiran...
+                    </p>
+                    <p class="text-sm text-gray-600 mt-2">
+                        Mohon tunggu sebentar
+                    </p>
+                </div>
+            {/if}
+
             <div class="flex items-center justify-between mb-4">
                 <h3 class="text-xl font-semibold text-gray-900">
                     <i class="fas fa-qrcode mr-2"></i>
-                    Scan QR Code
+                    Pindai Kode QR
                 </h3>
                 <button
                     on:click={stopScanning}
-                    class="text-gray-400 hover:text-gray-600 transition-colors"
+                    disabled={isSubmitting}
+                    class="text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
                 >
                     <i class="fas fa-times text-2xl"></i>
                 </button>
@@ -275,7 +310,7 @@
                 class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700"
             >
                 <i class="fas fa-info-circle mr-2"></i>
-                Point your camera at the schedule QR code
+                Arahkan kamera ke kode QR jadwal
             </div>
 
             <div
@@ -285,10 +320,11 @@
 
             <button
                 on:click={stopScanning}
-                class="w-full mt-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors"
+                disabled={isSubmitting}
+                class="w-full mt-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
                 <i class="fas fa-stop mr-2"></i>
-                Stop Scanning
+                Berhenti Memindai
             </button>
         </div>
     </div>
