@@ -371,7 +371,7 @@
                                     <td
                                         class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"
                                     >
-                                        <div>
+                                        <div class="dark:text-white">
                                             {new Date(
                                                 attendance.checkInTime,
                                             ).toLocaleDateString()}
@@ -384,13 +384,11 @@
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div
-                                            class="text-sm font-medium text-gray-900"
+                                            class="text-sm font-medium text-gray-900 dark:text-white"
                                         >
                                             {attendance.student.user.name}
                                         </div>
-                                        <div class="text-xs text-gray-500 dark:text-gray-400">
-                                            ID: {attendance.student.studentId}
-                                        </div>
+                                        
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="text-sm text-gray-900 dark:text-white">

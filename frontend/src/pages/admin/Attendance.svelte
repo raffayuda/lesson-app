@@ -102,23 +102,41 @@
         }
     }
 
+    let scanCooldown = false;
+
     async function startQRScanner() {
         try {
             scanner = new Html5Qrcode("qr-reader-attendance");
             scanning = true;
             showQRScanner = true;
+            scanCooldown = false; // Reset cooldown
 
             await scanner.start(
                 { facingMode: "environment" },
-                { fps: 10, qrbox: { width: 250, height: 250 } },
-                async (qrCode) => {
-                    await handleQRScan(qrCode);
+                { 
+                    fps: 30, // Increased from 10 for faster scanning
+                    qrbox: { width: 200, height: 200 }, // Smaller box = faster processing
+                    aspectRatio: 1.0,
+                    disableFlip: false
                 },
-                () => {},
+                async (qrCode) => {
+                    // Debouncing to prevent multiple rapid scans
+                    if (scanCooldown) return;
+                    scanCooldown = true;
+                    
+                    await handleQRScan(qrCode);
+                    
+                    // Reset cooldown after 2 seconds
+                    setTimeout(() => {
+                        scanCooldown = false;
+                    }, 2000);
+                },
+                () => {}, // Error callback - silent failures
             );
         } catch (error) {
             toastStore.error("Failed to start camera: " + error.message);
             scanning = false;
+            showQRScanner = false;
         }
     }
 
@@ -126,8 +144,11 @@
         if (scanner && scanning) {
             try {
                 await scanner.stop();
+                await scanner.clear();
+                scanner = null; // Release scanner instance
                 scanning = false;
                 showQRScanner = false;
+                scanCooldown = false; // Reset cooldown
             } catch (error) {
                 console.error("Error stopping scanner:", error);
             }
@@ -164,7 +185,15 @@
 
     onDestroy(async () => {
         await stopQRScanner();
-        if (scanner) scanner.clear();
+        // Additional cleanup
+        if (scanner) {
+            try {
+                await scanner.clear();
+                scanner = null;
+            } catch (err) {
+                console.error("Cleanup error:", err);
+            }
+        }
     });
 </script>
 

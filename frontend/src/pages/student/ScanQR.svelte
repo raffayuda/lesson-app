@@ -11,19 +11,26 @@
     let error = "";
     let success = "";
     let recentAttendance = [];
+    let dataFetched = false; // Cache flag
 
     onMount(async () => {
         await fetchRecentAttendance();
     });
 
     async function fetchRecentAttendance() {
+        // Skip if already fetched (cache)
+        if (dataFetched) {
+            return;
+        }
+
         try {
             // Get student ID from auth
             const student = $auth.user.student;
             if (!student) return;
 
+            // Add limit parameter to reduce data transfer
             const response = await fetch(
-                `${API_URL}/attendance?studentId=${student.id}`,
+                `${API_URL}/attendance?studentId=${student.id}&limit=5&sort=desc`,
                 {
                     headers: { Authorization: `Bearer ${auth.getToken()}` },
                 },
@@ -32,6 +39,7 @@
             if (response.ok) {
                 const all = await response.json();
                 recentAttendance = all.slice(0, 5); // Last 5 records
+                dataFetched = true; // Mark as cached
             }
         } catch (err) {
             console.error("Error fetching attendance:", err);
@@ -44,24 +52,29 @@
         success = "";
         isProcessing = false; // Reset processing flag
 
-        // Wait for modal to render
-        setTimeout(async () => {
+        // Use requestAnimationFrame for better performance
+        requestAnimationFrame(async () => {
             try {
                 scanner = new Html5Qrcode("qr-reader");
                 scanning = true;
 
                 await scanner.start(
                     { facingMode: "environment" },
-                    { fps: 10, qrbox: { width: 250, height: 250 } },
+                    { 
+                        fps: 30, // Increased from 10 for faster scanning
+                        qrbox: { width: 200, height: 200 }, // Smaller box = faster processing
+                        aspectRatio: 1.0, // Square aspect ratio
+                        disableFlip: false // Enable flip for better detection
+                    },
                     async (decodedText) => {
-                        // Prevent multiple scans
+                        // Prevent multiple scans with debouncing
                         if (isProcessing) return;
                         isProcessing = true;
 
                         await handleScan(decodedText);
                         await stopScanning();
                     },
-                    () => {},
+                    () => {}, // Error callback - silent failures
                 );
             } catch (err) {
                 error = "Failed to start camera: " + err.message;
@@ -69,18 +82,21 @@
                 showScanModal = false;
                 isProcessing = false;
             }
-        }, 100);
+        });
     }
 
     async function stopScanning() {
         if (scanner && scanning) {
             try {
                 await scanner.stop();
-                scanner.clear();
+                await scanner.clear();
+                scanner = null; // Release scanner instance
                 scanning = false;
                 showScanModal = false;
             } catch (err) {
                 console.error("Error stopping scanner:", err);
+            } finally {
+                isProcessing = false; // Reset processing flag
             }
         }
     }
@@ -101,6 +117,9 @@
             if (response.ok) {
                 success = `✅ Attendance marked for ${data.schedule.subject} - ${data.schedule.class}`;
                 error = "";
+                
+                // Invalidate cache and refetch
+                dataFetched = false;
                 await fetchRecentAttendance();
             } else {
                 error = data.error || "Failed to mark attendance";
@@ -139,8 +158,8 @@
 
 <Layout activePage="/" title="Scan QR Code">
     <div class="max-w-2xl mx-auto space-y-6">
-        <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-xl font-semibold text-gray-900 mb-4">
+        <div class="bg-white rounded-lg shadow p-6 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4 dark:text-white">
                 <i class="fas fa-qrcode mr-2"></i>Scan Schedule QR Code
             </h2>
 
@@ -181,8 +200,8 @@
 
         <!-- Recent Attendance -->
         {#if recentAttendance.length > 0}
-            <div class="bg-white rounded-lg shadow p-6">
-                <h3 class="text-lg font-semibold text-gray-900 mb-4">
+            <div class="bg-white rounded-lg shadow p-6 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4 dark:text-white">
                     <i class="fas fa-history mr-2"></i>
                     Recent Attendance
                 </h3>
@@ -190,13 +209,13 @@
                 <div class="space-y-3">
                     {#each recentAttendance as attendance}
                         <div
-                            class="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50"
+                            class="flex items-center  justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
                         >
                             <div class="flex-1">
-                                <p class="text-sm font-medium text-gray-900">
+                                <p class="text-sm font-medium text-gray-900 dark:text-white">
                                     {attendance.schedule.subject}
                                 </p>
-                                <p class="text-xs text-gray-500">
+                                <p class="text-xs text-gray-500 dark:text-gray-400">
                                     {attendance.schedule.class} • {new Date(
                                         attendance.checkInTime,
                                     ).toLocaleDateString()}

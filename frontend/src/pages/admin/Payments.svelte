@@ -546,9 +546,7 @@
                                     >
                                         {payment.student.user.name}
                                     </div>
-                                    <div class="text-xs text-gray-500 dark:text-gray-400">
-                                        ID: {payment.student.studentId}
-                                    </div>
+                                    
                                 </td>
                                 <td
                                     class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white"

@@ -8,6 +8,7 @@
     let allPayments = []; // For filtering
     let loading = false;
     let submitting = false;
+    let dataFetched = false; // Cache flag
 
     // Pagination
     let currentPage = 1;
@@ -30,12 +31,20 @@
 
     let imagePreview = "";
     let fileInput;
+    let filterTimeout; // Debouncing
 
     onMount(() => {
+        // Lazy load: only fetch when needed
         fetchPayments();
     });
 
     async function fetchPayments() {
+        // Skip if already fetched (cache)
+        if (dataFetched) {
+            applyFiltersAndPagination();
+            return;
+        }
+
         loading = true;
         try {
             const response = await fetch(`${API_URL}/payments`, {
@@ -45,6 +54,7 @@
                 const result = await response.json();
                 // Handle pagination response structure
                 allPayments = result.data || result;
+                dataFetched = true; // Mark as cached
                 applyFiltersAndPagination();
             }
         } catch (error) {
@@ -54,16 +64,25 @@
         }
     }
 
+    // Memoized filter function
     function applyFiltersAndPagination() {
-        let filtered = [...allPayments];
+        // Early return if no data
+        if (!allPayments || allPayments.length === 0) {
+            payments = [];
+            totalPages = 1;
+            return;
+        }
 
-        // Apply filters
+        let filtered = allPayments;
+
+        // Apply filters only if they exist (avoid unnecessary filtering)
         if (filterStatus) {
             filtered = filtered.filter((p) => p.status === filterStatus);
         }
         if (filterStartDate) {
+            const startDate = new Date(filterStartDate);
             filtered = filtered.filter(
-                (p) => new Date(p.paymentDate) >= new Date(filterStartDate),
+                (p) => new Date(p.paymentDate) >= startDate,
             );
         }
         if (filterEndDate) {
@@ -75,7 +94,7 @@
         }
 
         // Calculate pagination
-        totalPages = Math.ceil(filtered.length / limit);
+        totalPages = Math.ceil(filtered.length / limit) || 1;
         const start = (currentPage - 1) * limit;
         const end = start + limit;
         payments = filtered.slice(start, end);
@@ -87,6 +106,15 @@
         filterEndDate = "";
         currentPage = 1;
         applyFiltersAndPagination();
+    }
+
+    // Debounced filter application
+    function debouncedFilter() {
+        clearTimeout(filterTimeout);
+        filterTimeout = setTimeout(() => {
+            currentPage = 1;
+            applyFiltersAndPagination();
+        }, 300); // 300ms debounce
     }
 
     function goToPage(page) {
@@ -110,21 +138,83 @@
         }
     }
 
-    function handleFileSelect(event) {
+    // Image compression function
+    async function compressImage(file, maxSizeMB = 2, maxWidthOrHeight = 1200) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+
+                    // Resize if too large
+                    if (width > height) {
+                        if (width > maxWidthOrHeight) {
+                            height *= maxWidthOrHeight / width;
+                            width = maxWidthOrHeight;
+                        }
+                    } else {
+                        if (height > maxWidthOrHeight) {
+                            width *= maxWidthOrHeight / height;
+                            height = maxWidthOrHeight;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    // Try different quality levels to meet size requirement
+                    let quality = 0.8;
+                    let compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+                    
+                    // Reduce quality if still too large
+                    while (compressedDataUrl.length > maxSizeMB * 1024 * 1024 * 1.37 && quality > 0.1) {
+                        quality -= 0.1;
+                        compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+                    }
+
+                    resolve(compressedDataUrl);
+                };
+                img.onerror = reject;
+                img.src = e.target.result;
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    }
+
+    async function handleFileSelect(event) {
         const file = event.target.files[0];
         if (file) {
-            if (file.size > 5 * 1024 * 1024) {
-                // 5MB limit
-                toastStore.error("File size must be less than 5MB");
+            if (file.size > 2 * 1024 * 1024) {
+                // 2MB limit
+                toastStore.error("File size must be less than 2MB");
                 return;
             }
 
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                form.proofImage = e.target.result; // Base64
-                imagePreview = e.target.result;
-            };
-            reader.readAsDataURL(file);
+            if (!file.type.startsWith('image/')) {
+                toastStore.error("Please upload an image file");
+                return;
+            }
+
+            try {
+                // Show loading state
+                imagePreview = "loading";
+                
+                // Compress image
+                const compressedImage = await compressImage(file, 2);
+                form.proofImage = compressedImage;
+                imagePreview = compressedImage;
+                
+                toastStore.success("Image uploaded and compressed successfully!");
+            } catch (error) {
+                toastStore.error("Failed to process image: " + error.message);
+                imagePreview = "";
+            }
         }
     }
 
@@ -163,6 +253,9 @@
                 };
                 imagePreview = "";
                 if (fileInput) fileInput.value = "";
+                
+                // Invalidate cache and refetch
+                dataFetched = false;
                 fetchPayments();
             } else {
                 const data = await response.json();
@@ -200,10 +293,9 @@
         }).format(amount);
     }
 
-    // Reactive: re-apply filters when filter values change
-    $: if (filterStatus || filterStartDate || filterEndDate) {
-        currentPage = 1;
-        applyFiltersAndPagination();
+    // Reactive: re-apply filters when filter values change (debounced)
+    $: if (filterStatus !== undefined || filterStartDate || filterEndDate) {
+        debouncedFilter();
     }
 </script>
 
@@ -217,17 +309,18 @@
             </h2>
             <div class="flex justify-center mb-4">
                 <img
-                    src="qris.jpg"
-                    alt="GoPay QR Code"
-                    class="w-64 h-64 rounded-lg shadow-md"
+                    src="../../../public/qris.jpg"
+                    alt="QRIS Payment Code"
+                    loading="lazy"
+                    class="w-64 h-64 rounded-lg shadow-md object-contain bg-white"
                 />
             </div>
             <div
-                class="text-center p-3 bg-blue-50 border border-blue-200 rounded-lg"
+                class="text-center p-3 bg-blue-50 border border-blue-200 rounded-lg dark:bg-blue-900/20 dark:border-blue-800"
             >
-                <i class="fas fa-info-circle text-blue-600 mr-2"></i>
-                <span class="text-sm text-blue-700"
-                    >Scan QR code above with GoPay app to make payment</span
+                <i class="fas fa-info-circle text-blue-600 dark:text-blue-400 mr-2"></i>
+                <span class="text-sm text-blue-700 dark:text-blue-300"
+                    >Scan QRIS code above with any e-wallet app to make payment</span
                 >
             </div>
         </div>
@@ -309,8 +402,8 @@
                         required
                         class="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-primary-500"
                     />
-                    <p class="text-xs text-gray-500 mt-1">
-                        Max file size: 5MB. Supported: JPG, PNG
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Max file size: 2MB. Supported: JPG, PNG (will be compressed automatically)
                     </p>
                 </div>
 
@@ -320,11 +413,19 @@
                             class="block text-sm font-medium dark:text-gray-300 mb-1"
                             >Preview</label
                         >
-                        <img
-                            src={imagePreview}
-                            alt="Preview"
-                            class="max-w-xs rounded-lg border border-gray-300"
-                        />
+                        {#if imagePreview === "loading"}
+                            <div class="flex items-center justify-center p-8 border border-gray-300 rounded-lg bg-gray-50 dark:bg-gray-700">
+                                <i class="fas fa-spinner fa-spin text-3xl text-primary-500"></i>
+                                <span class="ml-3 text-sm text-gray-600 dark:text-gray-300">Compressing image...</span>
+                            </div>
+                        {:else}
+                            <img
+                                src={imagePreview}
+                                alt="Preview"
+                                loading="lazy"
+                                class="max-w-xs max-h-64 rounded-lg border border-gray-300 dark:border-gray-600 object-contain"
+                            />
+                        {/if}
                     </div>
                 {/if}
 

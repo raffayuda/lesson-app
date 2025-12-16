@@ -7,6 +7,7 @@
     let attendances = [];
     let allAttendances = []; // For stats
     let loading = true;
+    let dataFetched = false; // Cache flag
 
     // Pagination
     let currentPage = 1;
@@ -18,12 +19,19 @@
     let filterSubject = "";
     let filterStartDate = "";
     let filterEndDate = "";
+    let filterTimeout; // Debouncing
 
     onMount(() => {
         fetchAttendances();
     });
 
     async function fetchAttendances() {
+        // Skip if already fetched (cache)
+        if (dataFetched) {
+            applyFiltersAndPagination();
+            return;
+        }
+
         loading = true;
         try {
             const student = $auth.user.student;
@@ -38,6 +46,7 @@
 
             if (response.ok) {
                 allAttendances = await response.json();
+                dataFetched = true; // Mark as cached
                 applyFiltersAndPagination();
             }
         } catch (error) {
@@ -48,9 +57,16 @@
     }
 
     function applyFiltersAndPagination() {
-        let filtered = [...allAttendances];
+        // Early return if no data
+        if (!allAttendances || allAttendances.length === 0) {
+            attendances = [];
+            totalPages = 1;
+            return;
+        }
 
-        // Apply filters
+        let filtered = allAttendances;
+
+        // Apply filters only if they exist
         if (filterStatus) {
             filtered = filtered.filter((a) => a.status === filterStatus);
         }
@@ -60,8 +76,9 @@
             );
         }
         if (filterStartDate) {
+            const startDate = new Date(filterStartDate);
             filtered = filtered.filter(
-                (a) => new Date(a.checkInTime) >= new Date(filterStartDate),
+                (a) => new Date(a.checkInTime) >= startDate,
             );
         }
         if (filterEndDate) {
@@ -73,7 +90,7 @@
         }
 
         // Calculate pagination
-        totalPages = Math.ceil(filtered.length / limit);
+        totalPages = Math.ceil(filtered.length / limit) || 1;
         const start = (currentPage - 1) * limit;
         const end = start + limit;
         attendances = filtered.slice(start, end);
@@ -86,6 +103,15 @@
         filterEndDate = "";
         currentPage = 1;
         applyFiltersAndPagination();
+    }
+
+    // Debounced filter application
+    function debouncedFilter() {
+        clearTimeout(filterTimeout);
+        filterTimeout = setTimeout(() => {
+            currentPage = 1;
+            applyFiltersAndPagination();
+        }, 300); // 300ms debounce
     }
 
     function goToPage(page) {
@@ -190,7 +216,7 @@
         <div
             class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
         >
-            <h2 class="text-2xl font-bold text-gray-900">
+            <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
                 <i class="fas fa-clipboard-check mr-2"></i>
                 My Attendance
             </h2>
@@ -206,26 +232,26 @@
 
         <!-- Stats Cards -->
         <div class="grid grid-cols-2 md:grid-cols-6 gap-4">
-            <div class="bg-white rounded-lg shadow p-4 text-center">
-                <p class="text-2xl font-bold text-gray-900">{stats.total}</p>
-                <p class="text-xs text-gray-500 mt-1">Total</p>
+            <div class="bg-white rounded-lg shadow p-4 text-center dark:bg-gray-800 border-l-4 border-gray-500">
+                <p class="text-2xl font-bold text-gray-900 dark:text-white">{stats.total}</p>
+                <p class="text-xs text-gray-500 mt-1 dark:text-gray-400">Total</p>
             </div>
             <div
-                class="bg-white rounded-lg shadow p-4 text-center border-l-4 border-green-500"
+                class="bg-white rounded-lg shadow p-4 text-center dark:bg-gray-800 border-l-4 border-green-500"
             >
                 <p class="text-2xl font-bold text-green-600">
                     {stats.present}
                 </p>
-                <p class="text-xs text-gray-500 mt-1">Hadir</p>
+                <p class="text-xs text-gray-500 mt-1 dark:text-gray-400">Hadir</p>
             </div>
             <div
-                class="bg-white rounded-lg shadow p-4 text-center border-l-4 border-yellow-500"
+                class="bg-white rounded-lg shadow p-4 text-center dark:bg-gray-800 border-l-4 border-yellow-500"
             >
                 <p class="text-2xl font-bold text-yellow-600">{stats.late}</p>
                 <p class="text-xs text-gray-500 mt-1">Terlambat</p>
             </div>
             <div
-                class="bg-white rounded-lg shadow p-4 text-center border-l-4 border-blue-500"
+                class="bg-white rounded-lg shadow p-4 text-center border-l-4 border-blue-500 dark:bg-gray-800"
             >
                 <p class="text-2xl font-bold text-blue-600">
                     {stats.excused}
@@ -233,36 +259,36 @@
                 <p class="text-xs text-gray-500 mt-1">Izin</p>
             </div>
             <div
-                class="bg-white rounded-lg shadow p-4 text-center border-l-4 border-red-500"
+                class="bg-white rounded-lg shadow p-4 text-center border-l-4 border-red-500 dark:bg-gray-800"
             >
                 <p class="text-2xl font-bold text-red-600">{stats.absent}</p>
-                <p class="text-xs text-gray-500 mt-1">Tidak Hadir</p>
+                <p class="text-xs text-gray-500 mt-1 dark:text-gray-400">Tidak Hadir</p>
             </div>
             <div
-                class="bg-white rounded-lg shadow p-4 text-center border-l-4 border-indigo-500"
+                class="bg-white rounded-lg shadow p-4 text-center border-l-4 border-indigo-500 dark:bg-gray-800" 
             >
                 <p class="text-2xl font-bold text-indigo-600">
                     {stats.rate}%
                 </p>
-                <p class="text-xs text-gray-500 mt-1">Kehadiran</p>
+                <p class="text-xs text-gray-500 mt-1 dark:text-gray-400">Kehadiran</p>
             </div>
         </div>
 
         <!-- Filters -->
-        <div class="bg-white rounded-lg shadow p-6">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">
+        <div class="bg-white rounded-lg shadow p-6 dark:bg-gray-800">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4 dark:text-white">
                 <i class="fas fa-filter mr-2"></i>
                 Filters
             </h3>
 
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1"
+                    <label class="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-400"
                         >Status</label
                     >
                     <select
                         bind:value={filterStatus}
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
                     >
                         <option value="">All Status</option>
                         <option value="PRESENT">Hadir</option>
@@ -273,12 +299,12 @@
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1"
+                    <label class="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-400"
                         >Subject</label
                     >
                     <select
                         bind:value={filterSubject}
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
                     >
                         <option value="">All Subjects</option>
                         {#each subjects as subject}
@@ -288,24 +314,24 @@
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1"
+                    <label class="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-400"
                         >Start Date</label
                     >
                     <input
                         type="date"
                         bind:value={filterStartDate}
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
                     />
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1"
+                    <label class="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-400"
                         >End Date</label
                     >
                     <input
                         type="date"
                         bind:value={filterEndDate}
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
                     />
                 </div>
             </div>
@@ -313,7 +339,7 @@
             <div class="flex gap-3 mt-4">
                 <button
                     on:click={clearFilters}
-                    class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg text-sm"
+                    class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg text-sm dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-300"
                 >
                     <i class="fas fa-times mr-2"></i>
                     Clear Filters
@@ -322,7 +348,7 @@
         </div>
 
         <!-- Attendance Table -->
-        <div class="bg-white rounded-lg shadow overflow-x-auto">
+        <div class="bg-white rounded-lg shadow overflow-x-auto dark:bg-gray-800">
             {#if loading}
                 <div class="flex justify-center py-20">
                     <i class="fas fa-spinner fa-spin text-4xl text-primary-500"
@@ -335,35 +361,35 @@
                 </div>
             {:else}
                 <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
+                    <thead class="bg-gray-50 dark:bg-gray-700">
                         <tr>
                             <th
-                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase"
+                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400"
                                 >Date & Time</th
                             >
                             <th
-                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase"
+                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400"
                                 >Subject</th
                             >
                             <th
-                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase"
+                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400"
                                 >Class</th
                             >
                             <th
-                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase"
+                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400"
                                 >Status</th
                             >
                             <th
-                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase"
+                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400"
                                 >Method</th
                             >
                         </tr>
                     </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
+                    <tbody class="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
                         {#each attendances as attendance}
-                            <tr class="hover:bg-gray-50">
+                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
                                 <td
-                                    class="px-4 py-3 whitespace-nowrap text-sm text-gray-900"
+                                    class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300"
                                 >
                                     <div>
                                         {new Date(
@@ -377,11 +403,11 @@
                                     </div>
                                 </td>
                                 <td
-                                    class="px-4 py-3 text-sm font-medium text-gray-900"
+                                    class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-300"
                                 >
                                     {attendance.schedule.subject}
                                 </td>
-                                <td class="px-4 py-3 text-sm text-gray-500">
+                                <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-300">
                                     {attendance.schedule.class}
                                 </td>
                                 <td class="px-4 py-3 whitespace-nowrap">
