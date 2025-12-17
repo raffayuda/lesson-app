@@ -319,13 +319,13 @@
 <Layout activePage="/schedules" title="Schedules Management">
     <div class="space-y-6">
         <div class="flex justify-between items-center">
-            <h2 class="text-2xl font-bold text-gray-900 dark:text-white"><i class="fas fa-calendar-alt mr-2 text-primary-600"></i>Class Schedules</h2>
+            <h2 class="text-2xl font-bold text-gray-900 dark:text-white"><i class="fas fa-calendar-alt mr-2 text-primary-600"></i>Jadwal</h2>
             <button
                 on:click={() => openModal()}
                 class="px-4 py-2 bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white rounded-xl flex items-center gap-2 shadow-lg hover:shadow-xl transition-all duration-300"
             >
                 <i class="fas fa-plus"></i>
-                <span>Add Schedule</span>
+                <span>Tambah Jadwal</span>
             </button>
         </div>
 
@@ -340,31 +340,31 @@
                         <tr>
                             <th
                                 class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase"
-                                >Subject</th
+                                >Mata Pelajaran</th
                             >
                             <th
                                 class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase"
-                                >Class</th
+                                >Kelas</th
                             >
                             <th
                                 class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase"
-                                >Day</th
+                                >Hari</th
                             >
                             <th
                                 class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase"
-                                >Time</th
+                                >Waktu</th
                             >
                             <th
                                 class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase"
-                                >Teacher</th
+                                >Guru</th
                             >
                             <th
                                 class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase"
-                                >Room</th
+                                >Ruangan</th
                             >
                             <th
                                 class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase"
-                                >Actions</th
+                                >Aksi</th
                             >
                         </tr>
                     </thead>
@@ -460,7 +460,7 @@
         class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
     >
         <div
-            class="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6"
+            class="bg-white dark:bg-gray-800 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6"
         >
             <h3 class="text-xl font-semibold mb-4">
                 {editingId ? "Edit" : "Add"} Schedule
@@ -470,41 +470,41 @@
                 <!-- Schedule Info -->
                 <div>
                     <h4
-                        class="text-sm font-semibold text-gray-700 mb-3 uppercase"
+                        class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3 uppercase"
                     >
                         Schedule Information
                     </h4>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label
-                                class="block text-sm font-medium text-gray-700 mb-1"
+                                class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1"
                                 >Subject</label
                             >
                             <input
                                 bind:value={form.subject}
                                 required
-                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                                class="w-full px-3 py-2 border border-gray-300 dark:bg-gray-700 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500"
                             />
                         </div>
                         <div>
                             <label
-                                class="block text-sm font-medium text-gray-700 mb-1"
+                                class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1"
                                 >Class</label
                             >
                             <input
                                 bind:value={form.class}
                                 required
-                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                                class="w-full px-3 py-2 border border-gray-300 dark:bg-gray-700 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500"
                             />
                         </div>
                         <div>
                             <label
-                                class="block text-sm font-medium text-gray-700 mb-1"
+                                class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1"
                                 >Day</label
                             >
                             <select
                                 bind:value={form.day}
-                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                                class="w-full px-3 py-2 border border-gray-300 dark:bg-gray-700 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500"
                             >
                                 {#each days as day}
                                     <option value={day}>{day}</option>
@@ -513,48 +513,48 @@
                         </div>
                         <div>
                             <label
-                                class="block text-sm font-medium text-gray-700 mb-1"
+                                class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1"
                                 >Room</label
                             >
                             <input
                                 bind:value={form.room}
                                 required
-                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                                class="w-full px-3 py-2 border border-gray-300 dark:bg-gray-700 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500"
                             />
                         </div>
                         <div>
                             <label
-                                class="block text-sm font-medium text-gray-700 mb-1"
+                                class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1"
                                 >Start Time</label
                             >
                             <input
                                 type="time"
                                 bind:value={form.startTime}
                                 required
-                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                                class="w-full px-3 py-2 border border-gray-300 dark:bg-gray-700 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500"
                             />
                         </div>
                         <div>
                             <label
-                                class="block text-sm font-medium text-gray-700 mb-1"
+                                class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1"
                                 >End Time</label
                             >
                             <input
                                 type="time"
                                 bind:value={form.endTime}
                                 required
-                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                                class="w-full px-3 py-2 border border-gray-300 dark:bg-gray-700 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500"
                             />
                         </div>
                         <div class="col-span-2">
                             <label
-                                class="block text-sm font-medium text-gray-700 mb-1"
+                                class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1"
                                 >Teacher Name</label
                             >
                             <input
                                 bind:value={form.teacherName}
                                 required
-                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                                class="w-full px-3 py-2 border border-gray-300 dark:bg-gray-700 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500"
                             />
                         </div>
                     </div>
@@ -563,7 +563,7 @@
                 <!-- Assign Students -->
                 <div class="border-t border-gray-200 pt-6">
                     <h4
-                        class="text-sm font-semibold text-gray-700 mb-3 uppercase"
+                        class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3 uppercase"
                     >
                         <i class="fas fa-users mr-2"></i>
                         Assign Students ({assignedStudentIds.length} selected)
@@ -585,16 +585,16 @@
                                 type="text"
                                 bind:value={searchQuery}
                                 placeholder="Search students by name, ID, or class..."
-                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                                class="w-full px-3 py-2 border border-gray-300 dark:bg-gray-700 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
                             />
                         </div>
                         <div
-                            class="max-h-60 overflow-y-auto border border-gray-200 rounded-lg"
+                            class="max-h-60 overflow-y-auto border border-gray-200 dark:bg-gray-700 dark:border-gray-600 rounded-lg"
                         >
                             <div class="divide-y divide-gray-200">
                                 {#each filteredStudents as student}
                                     <label
-                                        class="flex items-center p-3 hover:bg-gray-50 cursor-pointer"
+                                        class="flex items-center p-3 hover:bg-gray-50 dark:hover:bg-gray-600 cursor-pointer"
                                     >
                                         <input
                                             type="checkbox"
@@ -607,11 +607,11 @@
                                         />
                                         <div class="ml-3 flex-1">
                                             <p
-                                                class="text-sm font-medium text-gray-900"
+                                                class="text-sm font-medium text-gray-900 dark:text-gray-200"
                                             >
                                                 {student.user.name}
                                             </p>
-                                            <p class="text-xs text-gray-500">
+                                            <p class="text-xs text-gray-500 dark:text-gray-400">
                                                 Class:
                                                 {student.class}
                                             </p>
