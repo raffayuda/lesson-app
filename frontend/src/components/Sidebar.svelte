@@ -67,7 +67,7 @@
             >
                 <i class="fas fa-graduation-cap text-2xl text-white"></i>
             </div>
-            <span class="text-xl font-bold text-white">Kehadiran</span>
+            <span class="text-xl font-bold text-white">Pay & Attend</span>
         </div>
     </div>
 

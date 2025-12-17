@@ -56,7 +56,7 @@
 </script>
 
 <svelte:head>
-  <title>Attendance System</title>
+  <title>Pay & Attend</title>
 </svelte:head>
 
 {#if $auth.loading}
