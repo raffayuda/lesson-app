@@ -525,15 +525,16 @@
             <div class="flex gap-3 mt-4">
                 <button
                     on:click={applyFilters}
-                    class="px-4 py-2 bg-blue-700 dark:bg-blue-600 hover:bg-blue-600 dark:hover:bg-blue-700 text-white rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    class="px-4 py-2 dark:bg-blue-600 hover:bg-blue-600 dark:hover:bg-blue-700 text-white rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    style="background-color: blue;"
                 >
                     <i class="fas fa-search mr-2"></i>
                     Terapkan Filter
                 </button>
                 <button
                     on:click={clearFilters}
-                    class="px-4 py-2 bg-red-700 dark:bg-red-600 hover:bg-red-600 dark:hover:bg-red-700 text-white rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                >
+                    class="px-4 py-2 dark:bg-red-600 hover:bg-red-600 dark:hover:bg-red-700 text-white rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    style="background-color: red;">
                     <i class="fas fa-times mr-2"></i>
                     Hapus Filter
                 </button>
