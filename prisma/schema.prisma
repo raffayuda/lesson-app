@@ -67,17 +67,18 @@ model Student {
 }
 
 model Schedule {
-  id          String       @id @default(uuid())
-  subject     String       // Mata pelajaran
-  class       String       // Kelas
-  day         String       // Hari (Monday, Tuesday, etc)
-  startTime   String       // Format: "08:00"
-  endTime     String       // Format: "09:30"
-  teacherName String
-  room        String
-  qrCode      String       @unique // QR Code untuk jadwal ini
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  id           String       @id @default(uuid())
+  subject      String       // Mata pelajaran
+  class        String       // Kelas
+  day          String       // Hari (Monday, Tuesday, etc)
+  startTime    String       // Format: "08:00"
+  endTime      String       // Format: "09:30"
+  teacherName  String
+  room         String
+  qrCode       String       @unique // QR Code untuk jadwal ini
+  specificDate DateTime?    // Tanggal spesifik untuk jadwal satu kali (null = berulang setiap minggu)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
   
   attendances Attendance[]
   students    ScheduleStudent[]
@@ -99,19 +100,20 @@ model ScheduleStudent {
 }
 
 model Attendance {
-  id          String           @id @default(uuid())
-  scheduleId  String
-  schedule    Schedule         @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
-  studentId   String
-  student     Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  status      AttendanceStatus @default(PRESENT)
-  method      AttendanceMethod @default(MANUAL)
-  checkInTime DateTime         @default(now())
-  notes       String?
-  markedById  String?
-  markedBy    User?            @relation("MarkedBy", fields: [markedById], references: [id])
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  id           String           @id @default(uuid())
+  scheduleId   String
+  schedule     Schedule         @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  studentId    String
+  student      Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  status       AttendanceStatus @default(PRESENT)
+  method       AttendanceMethod @default(MANUAL)
+  checkInTime  DateTime         @default(now())
+  scheduleDate DateTime?        // The actual date of the schedule
+  notes        String?
+  markedById   String?
+  markedBy     User?            @relation("MarkedBy", fields: [markedById], references: [id])
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
 
   @@map("attendances")
   @@index([scheduleId])

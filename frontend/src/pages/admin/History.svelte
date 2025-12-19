@@ -16,6 +16,11 @@
     let filterStatus = "";
     let filterMethod = "";
 
+    // Pagination
+    let currentPage = 1;
+    let itemsPerPage = 10;
+    let totalPages = 1;
+
     onMount(() => {
         fetchData();
     });
@@ -48,6 +53,7 @@
 
     async function applyFilters() {
         loading = true;
+        currentPage = 1; // Reset to first page when filtering
         try {
             const params = new URLSearchParams();
             if (filterDate) params.append("date", filterDate);
@@ -75,6 +81,7 @@
         filterStudent = "";
         filterStatus = "";
         filterMethod = "";
+        currentPage = 1; // Reset to first page
         fetchData();
     }
 
@@ -102,22 +109,24 @@
 
             const exportData = await response.json();
 
-            // Apply client-side method filter if set
+            // Apply client-side method filter if set (same as display filter)
             const filteredData = filterMethod
                 ? exportData.filter((att) => att.method === filterMethod)
                 : exportData;
 
+            console.log(`Exporting ${filteredData.length} records (from all pages)`);
+
             // Prepare data for Excel
             const data = filteredData.map((att) => ({
-                Date: new Date(att.checkInTime).toLocaleDateString(),
-                Time: new Date(att.checkInTime).toLocaleTimeString(),
-                Student: att.student.user.name,
+                "Tanggal Absen": new Date(att.checkInTime).toLocaleDateString(),
+                "Waktu Absen": new Date(att.checkInTime).toLocaleTimeString(),
+                "Siswa": att.student.user.name,
                 "Student ID": att.student.studentId,
-                Subject: att.schedule.subject,
-                Class: att.schedule.class,
-                Status: getStatusLabel(att.status),
-                Method: att.method,
-                "Marked By": att.markedBy?.name || "-",
+                "Mata Pelajaran": att.schedule.subject,
+                "Jadwal": `${att.scheduleDate ? new Date(att.scheduleDate).toLocaleDateString() : new Date(att.checkInTime).toLocaleDateString()} • ${att.schedule.day} • ${att.schedule.startTime.substring(0, 5)} - ${att.schedule.endTime.substring(0, 5)}`,
+                "Status": getStatusLabel(att.status),
+                "Metode": att.method === "MANUAL" ? "Manual" : "QR Code",
+                "Ditandai Oleh": att.markedBy?.name || "-",
             }));
 
             // Create workbook and worksheet
@@ -175,22 +184,72 @@
         return labels[status] || status;
     }
 
-    $: filteredAttendances = attendances.filter((att) => {
+    // All filtered data (for stats and export)
+    $: allFilteredAttendances = attendances.filter((att) => {
         if (filterMethod && att.method !== filterMethod) return false;
         return true;
     });
 
+    // Stats calculated from ALL filtered data
     $: stats = {
-        total: filteredAttendances.length,
-        present: filteredAttendances.filter((a) => a.status === "PRESENT")
+        total: allFilteredAttendances.length,
+        present: allFilteredAttendances.filter((a) => a.status === "PRESENT")
             .length,
-        sick: filteredAttendances.filter((a) => a.status === "SICK").length,
-        permission: filteredAttendances.filter((a) => a.status === "PERMISSION")
+        sick: allFilteredAttendances.filter((a) => a.status === "SICK").length,
+        permission: allFilteredAttendances.filter((a) => a.status === "PERMISSION")
             .length,
-        absent: filteredAttendances.filter((a) => a.status === "ABSENT").length,
-        manual: filteredAttendances.filter((a) => a.method === "MANUAL").length,
-        qr: filteredAttendances.filter((a) => a.method === "QR").length,
+        absent: allFilteredAttendances.filter((a) => a.status === "ABSENT").length,
+        manual: allFilteredAttendances.filter((a) => a.method === "MANUAL").length,
+        qr: allFilteredAttendances.filter((a) => a.method === "QR").length,
     };
+
+    // Update total pages when data changes
+    $: {
+        totalPages = Math.ceil(allFilteredAttendances.length / itemsPerPage);
+        if (currentPage > totalPages && totalPages > 0) {
+            currentPage = totalPages;
+        }
+    }
+
+    // Paginated data for display
+    $: paginatedAttendances = allFilteredAttendances.slice(
+        (currentPage - 1) * itemsPerPage,
+        currentPage * itemsPerPage
+    );
+
+    function goToPage(page) {
+        if (page >= 1 && page <= totalPages) {
+            currentPage = page;
+        }
+    }
+
+    function nextPage() {
+        if (currentPage < totalPages) {
+            currentPage++;
+        }
+    }
+
+    function prevPage() {
+        if (currentPage > 1) {
+            currentPage--;
+        }
+    }
+
+    $: pageNumbers = (() => {
+        const pages = [];
+        const showPages = 5; // Show 5 page numbers
+        let startPage = Math.max(1, currentPage - Math.floor(showPages / 2));
+        let endPage = Math.min(totalPages, startPage + showPages - 1);
+        
+        if (endPage - startPage < showPages - 1) {
+            startPage = Math.max(1, endPage - showPages + 1);
+        }
+        
+        for (let i = startPage; i <= endPage; i++) {
+            pages.push(i);
+        }
+        return pages;
+    })();
 </script>
 
 <Layout activePage="/history" title="Riwayat Absensi">
@@ -410,10 +469,10 @@
                     <i class="fas fa-spinner fa-spin text-4xl text-primary-500"
                     ></i>
                 </div>
-            {:else if filteredAttendances.length === 0}
+            {:else if allFilteredAttendances.length === 0}
                 <div class="text-center py-20 text-gray-500 dark:text-gray-400">
                     <i class="fas fa-inbox text-4xl mb-2"></i>
-                    <p>No attendance records found</p>
+                    <p>Tidak ada data absensi ditemukan</p>
                 </div>
             {:else}
                 <div class="overflow-x-auto">
@@ -451,7 +510,7 @@
                         <tbody
                             class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700"
                         >
-                            {#each filteredAttendances as attendance}
+                            {#each paginatedAttendances as attendance}
                                 <tr
                                     class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                                 >
@@ -487,7 +546,7 @@
                                         <div
                                             class="text-xs text-gray-500 dark:text-gray-400"
                                         >
-                                            Kelas: {attendance.schedule.class}
+                                            {attendance.scheduleDate ? new Date(attendance.scheduleDate).toLocaleDateString() : new Date(attendance.checkInTime).toLocaleDateString()} • {attendance.schedule.day} • {attendance.schedule.startTime.substring(0, 5)} - {attendance.schedule.endTime.substring(0, 5)}
                                         </div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
@@ -531,6 +590,76 @@
                             {/each}
                         </tbody>
                     </table>
+                </div>
+
+                <!-- Pagination Controls -->
+                <div class="bg-gray-50 dark:bg-gray-700 px-6 py-4 border-t border-gray-200 dark:border-gray-600">
+                    <div class="flex items-center justify-between">
+                        <div class="text-sm text-gray-600 dark:text-gray-300">
+                            Menampilkan {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, allFilteredAttendances.length)} dari {allFilteredAttendances.length} data
+                        </div>
+                        
+                        <div class="flex items-center gap-2">
+                            <!-- Previous Button -->
+                            <button
+                                on:click={prevPage}
+                                disabled={currentPage === 1}
+                                class="px-3 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600"
+                            >
+                                <i class="fas fa-chevron-left"></i>
+                            </button>
+
+                            <!-- Page Numbers -->
+                            {#if totalPages <= 7}
+                                {#each Array(totalPages) as _, i}
+                                    <button
+                                        on:click={() => goToPage(i + 1)}
+                                        class="px-3 py-2 text-sm font-medium rounded-lg transition-colors {currentPage === i + 1 ? 'bg-primary-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600'}"
+                                    >
+                                        {i + 1}
+                                    </button>
+                                {/each}
+                            {:else}
+                                {#if currentPage > 3}
+                                    <button
+                                        on:click={() => goToPage(1)}
+                                        class="px-3 py-2 text-sm font-medium rounded-lg transition-colors bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600"
+                                    >
+                                        1
+                                    </button>
+                                    <span class="text-gray-500">...</span>
+                                {/if}
+
+                                {#each pageNumbers as pageNum}
+                                    <button
+                                        on:click={() => goToPage(pageNum)}
+                                        class="px-3 py-2 text-sm font-medium rounded-lg transition-colors {currentPage === pageNum ? 'bg-primary-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600'}"
+                                    >
+                                        {pageNum}
+                                    </button>
+                                {/each}
+
+                                {#if currentPage < totalPages - 2}
+                                    <span class="text-gray-500">...</span>
+                                    <button
+                                        on:click={() => goToPage(totalPages)}
+                                        class="px-3 py-2 text-sm font-medium rounded-lg transition-colors bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600"
+                                    >
+                                        {totalPages}
+                                    </button>
+                                {/if}
+                            {/if}
+
+                            <!-- Next Button -->
+                            <button
+                                on:click={nextPage}
+                                disabled={currentPage === totalPages}
+                                class="px-3 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600"
+                            >
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             {/if}
         </div>

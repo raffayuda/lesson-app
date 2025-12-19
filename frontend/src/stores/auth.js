@@ -1,6 +1,6 @@
 import { writable } from 'svelte/store';
 
-const API_URL = import.meta.env.PROD ? '/api' : 'http://localhost:3000/api';
+const API_URL = import.meta.env.PROD ? '/api' : 'http://10.166.243.254:5173/api';
 
 function createAuthStore() {
     const { subscribe, set, update } = writable({

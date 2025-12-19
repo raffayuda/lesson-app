@@ -299,11 +299,33 @@ app.get('/api/schedules', authenticate, async (req, res) => {
 // Get today's schedules
 app.get('/api/schedules/today', authenticate, async (req, res) => {
   try {
-    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const today = days[new Date().getDay()];
+    const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    const now = new Date();
+    const today = days[now.getDay()];
+    
+    // Get today's date range for specificDate matching
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date(todayStart);
+    todayEnd.setDate(todayEnd.getDate() + 1);
 
     const schedules = await prisma.schedule.findMany({
-      where: { day: today },
+      where: {
+        OR: [
+          // Recurring schedules for today's day
+          {
+            day: today,
+            specificDate: null
+          },
+          // One-time schedules for today's specific date
+          {
+            specificDate: {
+              gte: todayStart,
+              lt: todayEnd
+            }
+          }
+        ]
+      },
       orderBy: { startTime: 'asc' },
       include: {
         _count: {
@@ -348,20 +370,30 @@ app.get('/api/schedules/:id', authenticate, async (req, res) => {
 // Create schedule
 app.post('/api/schedules', authenticate, adminOnly, async (req, res) => {
   try {
-    const { subject, class: className, day, startTime, endTime, teacherName, room, studentIds } = req.body;
+    const { subject, class: className, day, startTime, endTime, teacherName, room, studentIds, specificDate } = req.body;
 
-    if (!subject || !className || !day || !startTime || !endTime || !teacherName || !room) {
+    if (!subject || !day || !startTime || !endTime || !teacherName || !room) {
       return res.status(400).json({ error: 'All fields are required' });
     }
 
+    // Use provided class or default to subject name
+    const scheduleClass = className || subject;
+
     // Generate QR code for this schedule
-    const qrData = `${subject}-${className}-${day}-${startTime}-${Date.now()}`;
+    const qrData = `${subject}-${scheduleClass}-${day}-${startTime}-${Date.now()}`;
     const qrCode = crypto.createHash('sha256').update(qrData).digest('hex').substring(0, 16);
 
     // Create schedule and assign students in transaction
     const result = await prisma.$transaction(async (tx) => {
+      const scheduleData = { subject, class: scheduleClass, day, startTime, endTime, teacherName, room, qrCode };
+      
+      // Add specificDate if provided (for one-time schedules)
+      if (specificDate) {
+        scheduleData.specificDate = new Date(specificDate);
+      }
+      
       const schedule = await tx.schedule.create({
-        data: { subject, class: className, day, startTime, endTime, teacherName, room, qrCode }
+        data: scheduleData
       });
 
       // Assign students if provided
@@ -389,12 +421,24 @@ app.post('/api/schedules', authenticate, adminOnly, async (req, res) => {
 app.put('/api/schedules/:id', authenticate, adminOnly, async (req, res) => {
   try {
     const { id } = req.params;
-    const { subject, class: className, day, startTime, endTime, teacherName, room, studentIds } = req.body;
+    const { subject, class: className, day, startTime, endTime, teacherName, room, studentIds, specificDate } = req.body;
+
+    // Use provided class or default to subject name
+    const scheduleClass = className || subject;
 
     const result = await prisma.$transaction(async (tx) => {
+      const scheduleData = { subject, class: scheduleClass, day, startTime, endTime, teacherName, room };
+      
+      // Add specificDate if provided (for one-time schedules), or set to null for recurring
+      if (specificDate) {
+        scheduleData.specificDate = new Date(specificDate);
+      } else {
+        scheduleData.specificDate = null;
+      }
+      
       const schedule = await tx.schedule.update({
         where: { id },
-        data: { subject, class: className, day, startTime, endTime, teacherName, room }
+        data: scheduleData
       });
 
       // Update student assignments if provided
@@ -719,10 +763,13 @@ app.get('/api/attendance', authenticate, async (req, res) => {
     if (status) where.status = status;
 
     if (date) {
-      const startDate = new Date(date);
-      startDate.setHours(0, 0, 0, 0);
-      const endDate = new Date(date);
-      endDate.setHours(23, 59, 59, 999);
+      // Parse date as local time, not UTC
+      // date format: "YYYY-MM-DD"
+      const [year, month, day] = date.split('-').map(Number);
+      const startDate = new Date(year, month - 1, day, 0, 0, 0, 0);
+      const endDate = new Date(year, month - 1, day, 23, 59, 59, 999);
+
+      console.log(`Filtering attendance for date ${date}: ${startDate} to ${endDate}`);
 
       where.checkInTime = {
         gte: startDate,
@@ -758,35 +805,70 @@ app.get('/api/attendance', authenticate, async (req, res) => {
 // Manual attendance (Admin only)
 app.post('/api/attendance/manual', authenticate, adminOnly, async (req, res) => {
   try {
-    const { scheduleId, studentId, status, notes } = req.body;
+    const { scheduleId, studentId, status, notes, date } = req.body;
 
     if (!scheduleId || !studentId || !status) {
       return res.status(400).json({ error: 'Schedule ID, Student ID, and status are required' });
     }
 
-    // Get today's date range (start and end of day)
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    // Fetch schedule to get the startTime
+    const schedule = await prisma.schedule.findUnique({
+      where: { id: scheduleId }
+    });
 
-    // Check if already marked TODAY using checkInTime
+    if (!schedule) {
+      return res.status(404).json({ error: 'Schedule not found' });
+    }
+
+    // Use provided date or default to today
+    let targetDate;
+    if (date) {
+      targetDate = new Date(date);
+    } else {
+      targetDate = new Date();
+    }
+    
+    // Extract hour and minute from schedule startTime (format: "HH:MM" or "HH:MM:SS")
+    const [hour, minute] = schedule.startTime.split(':').map(Number);
+    
+    // Create schedule date/time for checking duplicates
+    const scheduleDateTime = new Date(targetDate);
+    scheduleDateTime.setHours(hour, minute, 0, 0);
+    
+    // For checking existing attendance, use date range
+    const dayStart = new Date(targetDate);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(dayStart);
+    dayEnd.setDate(dayEnd.getDate() + 1);
+    
+    // Use actual current time for checkInTime (when attendance is being marked)
+    const actualCheckInTime = new Date();
+    
+    console.log('Saving attendance for schedule date:', scheduleDateTime.toISOString(), 'actual time:', actualCheckInTime.toISOString(), 'schedule:', schedule.subject);
+
+    // Check if already marked on this date using checkInTime
     const existing = await prisma.attendance.findFirst({
       where: { 
         scheduleId, 
         studentId,
         checkInTime: {
-          gte: today,
-          lt: tomorrow
+          gte: dayStart,
+          lt: dayEnd
         }
       }
     });
 
     if (existing) {
-      // Update existing attendance for today
+      // Update existing attendance with actual time
       const attendance = await prisma.attendance.update({
         where: { id: existing.id },
-        data: { status, notes, markedById: req.user.id },
+        data: { 
+          status, 
+          notes, 
+          markedById: req.user.id,
+          checkInTime: actualCheckInTime, // Use actual current time
+          scheduleDate: scheduleDateTime   // Update schedule date/time
+        },
         include: {
           student: {
             include: { user: { select: { name: true } } }
@@ -798,7 +880,7 @@ app.post('/api/attendance/manual', authenticate, adminOnly, async (req, res) => 
       return res.json(attendance);
     }
 
-    // Create new
+    // Create new with actual current time
     const attendance = await prisma.attendance.create({
       data: {
         scheduleId,
@@ -806,7 +888,9 @@ app.post('/api/attendance/manual', authenticate, adminOnly, async (req, res) => 
         status,
         method: 'MANUAL',
         notes,
-        markedById: req.user.id
+        markedById: req.user.id,
+        checkInTime: actualCheckInTime, // Use actual current time
+        scheduleDate: scheduleDateTime  // Save the schedule date/time
       },
       include: {
         student: {
@@ -863,19 +947,34 @@ app.post('/api/attendance/qr', authenticate, async (req, res) => {
       return res.status(403).json({ error: 'You are not enrolled in this schedule' });
     }
 
-    // Check if already marked
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    // Determine the target date for attendance (for duplicate checking)
+    let targetDate;
+    if (schedule.specificDate) {
+      // For one-time schedules, use the specific date
+      targetDate = new Date(schedule.specificDate);
+    } else {
+      // For recurring schedules, use today's date
+      targetDate = new Date();
+    }
+    
+    // Extract schedule time for reference
+    const [hours, minutes] = schedule.startTime.split(':');
+    const scheduleDateTime = new Date(targetDate);
+    scheduleDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+
+    // Check if already marked for this date
+    const startOfDay = new Date(targetDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(targetDate);
+    endOfDay.setHours(23, 59, 59, 999);
 
     const existing = await prisma.attendance.findFirst({
       where: {
         scheduleId: schedule.id,
         studentId: student.id,
         checkInTime: {
-          gte: today,
-          lt: tomorrow
+          gte: startOfDay,
+          lt: endOfDay
         }
       }
     });
@@ -884,13 +983,18 @@ app.post('/api/attendance/qr', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'You have already marked attendance for this schedule today' });
     }
 
-    // Create attendance
+    // Use actual current time for checkInTime
+    const actualCheckInTime = new Date();
+
+    // Create attendance with actual checkInTime and scheduleDate
     const attendance = await prisma.attendance.create({
       data: {
         scheduleId: schedule.id,
         studentId: student.id,
         status: 'PRESENT',
         method: 'QR',
+        checkInTime: actualCheckInTime,
+        scheduleDate: scheduleDateTime, // Save the schedule date/time
         markedById: req.user.id
       },
       include: {

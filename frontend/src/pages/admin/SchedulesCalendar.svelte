@@ -5,6 +5,10 @@
     import { auth, API_URL } from "../../stores/auth.js";
     import { toastStore } from "../../stores/toast.js";
     import { onMount } from "svelte";
+    import Calendar from '@event-calendar/core';
+    import DayGrid from '@event-calendar/day-grid';
+    import TimeGrid from '@event-calendar/time-grid';
+    import Interaction from '@event-calendar/interaction';
     import QRCode from "qrcode";
 
     let schedules = [];
@@ -18,8 +22,9 @@
     let submitting = false;
     let processing = false;
     let processingMessage = "Processing...";
-    let errorMessage = ""; // For inline error display
     
+    let calendarEl;
+    let ec; // Event Calendar instance
     let selectedScheduleQR = null;
     let selectedScheduleAttendance = null;
     let selectedScheduleDetail = null;
@@ -29,24 +34,14 @@
     let enrolledStudents = [];
     let attendanceStatuses = {};
     let savingAttendance = false;
-    let currentAttendanceDate = null; // Track which date's attendance we're viewing
     
-    // View mode and calendar state
-    let currentView = 'calendar'; // 'calendar' or 'list'
-    let currentWeekStart = new Date();
-    let currentMonth = new Date();
-    
-    // Quick add state
-    let showQuickAddModal = false;
-    let quickAddDay = "";
-    let quickAddTime = "";
-    let quickAddDate = null;
-    let scheduleRecurring = true; // true = every week, false = specific date only
+    // View mode
+    let currentView = 'dayGridWeek'; // dayGridWeek, timeGridWeek, dayGridMonth
     
     // Filters
+    let filterClass = "";
     let filterTeacher = "";
     let filterSubject = "";
-    let weekLabel = "";
     
     // Confirmation modal
     let showConfirmModal = false;
@@ -59,145 +54,78 @@
 
     let form = {
         subject: "",
-        day: "Senin",
+        class: "",
+        day: "Monday",
         startTime: "",
         endTime: "",
         teacherName: "",
         room: "",
-        specificDate: null, // For one-time schedules
     };
 
     const days = [
-        "Senin",
-        "Selasa",
-        "Rabu",
-        "Kamis",
-        "Jumat",
-        "Sabtu",
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
     ];
     
     const dayMapping = {
-        'Senin': 1,
-        'Selasa': 2,
-        'Rabu': 3,
-        'Kamis': 4,
-        'Jumat': 5,
-        'Sabtu': 6,
-        'Minggu': 0
+        'Monday': 1,
+        'Tuesday': 2,
+        'Wednesday': 3,
+        'Thursday': 4,
+        'Friday': 5,
+        'Saturday': 6,
+        'Sunday': 0
     };
-    
-    const timeSlots = [
-        "07:00", "08:00", "09:00", "10:00", "11:00", "12:00",
-        "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"
-    ];
 
     onMount(() => {
         fetchSchedules();
         fetchAllStudents();
-        setCurrentWeek();
+        initCalendar();
     });
-    
-    function setCurrentWeek() {
-        const now = new Date();
-        const dayOfWeek = now.getDay();
-        const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Start from Monday
-        currentWeekStart = new Date(now);
-        currentWeekStart.setDate(now.getDate() + diff);
-        currentWeekStart.setHours(0, 0, 0, 0);
-    }
-    
-    function getWeekDays() {
-        const days = [];
-        for (let i = 0; i < 7; i++) {
-            const date = new Date(currentWeekStart);
-            date.setDate(currentWeekStart.getDate() + i);
-            days.push(date);
-        }
-        return days;
-    }
-    
-    function getDayName(date) {
-        const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-        return dayNames[date.getDay()];
-    }
-    
-    function isToday(date) {
-        const today = new Date();
-        return date.getDate() === today.getDate() &&
-               date.getMonth() === today.getMonth() &&
-               date.getFullYear() === today.getFullYear();
-    }
-    
-    function getSchedulesForDay(dayName) {
-        return filteredSchedules.filter(s => s.day === dayName);
-    }
-    
-    function getSchedulesForDayAndTime(dayName, timeSlot, currentDate = null) {
-        const result = filteredSchedules.filter(s => {
-            // If schedule has specificDate (one-time), check the date only
-            if (s.specificDate) {
-                if (!currentDate) return false;
-                
-                const scheduleDate = new Date(s.specificDate);
-                const compareDate = new Date(currentDate);
-                
-                // Compare year, month, and day only
-                const isSameDate = scheduleDate.getFullYear() === compareDate.getFullYear() &&
-                                  scheduleDate.getMonth() === compareDate.getMonth() &&
-                                  scheduleDate.getDate() === compareDate.getDate();
-                
-                if (!isSameDate) return false;
-                // Don't check day name for specific date schedules
-            } else {
-                // For recurring schedules, check the day name
-                if (s.day !== dayName) return false;
+
+    function initCalendar() {
+        ec = new Calendar({
+            target: calendarEl,
+            props: {
+                plugins: [DayGrid, TimeGrid, Interaction],
+                options: {
+                    view: currentView,
+                    height: '700px',
+                    headerToolbar: {
+                        start: 'prev,next today',
+                        center: 'title',
+                        end: 'dayGridMonth,timeGridWeek,dayGridWeek'
+                    },
+                    buttonText: {
+                        today: 'Today',
+                        month: 'Month',
+                        week: 'Week',
+                        day: 'Day'
+                    },
+                    events: [],
+                    eventClick: handleEventClick,
+                    eventColor: '#3b82f6',
+                    eventTextColor: '#ffffff',
+                    slotMinTime: '07:00:00',
+                    slotMaxTime: '18:00:00',
+                    allDaySlot: false,
+                    nowIndicator: true,
+                    editable: false,
+                    selectable: false,
+                    dayMaxEvents: 3,
+                    moreLinkClick: 'popover',
+                    views: {
+                        dayGridWeek: {
+                            titleFormat: { year: 'numeric', month: 'short', day: 'numeric' }
+                        }
+                    }
+                }
             }
-            
-            // Handle both HH:MM and HH:MM:SS format
-            const scheduleStart = s.startTime.includes(':') ? s.startTime.split(':').slice(0, 2).join(':') : s.startTime;
-            const [startHour] = scheduleStart.split(':').map(Number);
-            const [slotHour] = timeSlot.split(':').map(Number);
-            
-            // Check if schedule starts within this hour slot
-            return startHour === slotHour;
         });
-        
-        return result;
-    }
-    
-    function nextWeek() {
-        const newDate = new Date(currentWeekStart);
-        newDate.setDate(newDate.getDate() + 7);
-        currentWeekStart = newDate;
-    }
-    
-    function prevWeek() {
-        const newDate = new Date(currentWeekStart);
-        newDate.setDate(newDate.getDate() - 7);
-        currentWeekStart = newDate;
-    }
-    
-    function goToToday() {
-        const now = new Date();
-        const dayOfWeek = now.getDay();
-        const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-        const newDate = new Date(now);
-        newDate.setDate(now.getDate() + diff);
-        newDate.setHours(0, 0, 0, 0);
-        currentWeekStart = newDate;
-    }
-    
-    function getDayColor(dayName) {
-        const colors = {
-            'Senin': '#ef4444',    // Red
-            'Selasa': '#f59e0b',   // Orange
-            'Rabu': '#10b981',     // Green
-            'Kamis': '#3b82f6',    // Blue
-            'Jumat': '#8b5cf6',    // Purple
-            'Sabtu': '#ec4899',    // Pink
-            'Minggu': '#6366f1',   // Indigo
-        };
-        return colors[dayName] || '#6366f1';
     }
 
     async function fetchSchedules() {
@@ -208,10 +136,7 @@
             });
             if (response.ok) {
                 schedules = await response.json();
-                console.log('Fetched schedules:', schedules.length, 'schedules');
-                if (schedules.length > 0) {
-                    console.log('Sample schedule:', schedules[0]);
-                }
+                updateCalendarEvents();
             }
         } catch (error) {
             console.error("Error:", error);
@@ -233,45 +158,69 @@
         }
     }
     
-    function openScheduleDetail(schedule, viewDate = null) {
-        selectedScheduleDetail = schedule;
-        selectedScheduleDetail.viewDate = viewDate; // Store the date context
+    function updateCalendarEvents() {
+        if (!ec) return;
+        
+        // Convert schedules to calendar events
+        const events = schedules
+            .filter(schedule => {
+                if (filterClass && schedule.class !== filterClass) return false;
+                if (filterTeacher && schedule.teacherName !== filterTeacher) return false;
+                if (filterSubject && !schedule.subject.toLowerCase().includes(filterSubject.toLowerCase())) return false;
+                return true;
+            })
+            .map(schedule => {
+                // Get next occurrence of the day
+                const today = new Date();
+                const dayOfWeek = dayMapping[schedule.day];
+                const daysUntil = (dayOfWeek + 7 - today.getDay()) % 7;
+                const nextDate = new Date(today);
+                nextDate.setDate(today.getDate() + (daysUntil === 0 ? 7 : daysUntil));
+                
+                const [startHour, startMinute] = schedule.startTime.split(':');
+                const [endHour, endMinute] = schedule.endTime.split(':');
+                
+                const startDateTime = new Date(nextDate);
+                startDateTime.setHours(parseInt(startHour), parseInt(startMinute), 0);
+                
+                const endDateTime = new Date(nextDate);
+                endDateTime.setHours(parseInt(endHour), parseInt(endMinute), 0);
+                
+                return {
+                    id: schedule.id,
+                    title: `${schedule.subject} (${schedule.class})`,
+                    start: startDateTime,
+                    end: endDateTime,
+                    backgroundColor: getClassColor(schedule.class),
+                    borderColor: getClassColor(schedule.class),
+                    extendedProps: {
+                        ...schedule
+                    }
+                };
+            });
+        
+        ec.setOption('events', events);
+    }
+    
+    function getClassColor(className) {
+        const colors = {
+            '10': '#ef4444', // red
+            '11': '#3b82f6', // blue
+            '12': '#10b981', // green
+            '12 A': '#f59e0b', // yellow
+            '12 B': '#8b5cf6', // purple
+            '12 C': '#ec4899', // pink
+        };
+        return colors[className] || '#6366f1';
+    }
+    
+    function handleEventClick(info) {
+        const schedule = info.event.extendedProps;
+        selectedScheduleDetail = {
+            id: info.event.id,
+            ...schedule
+        };
         showDetailModal = true;
-    }
-    
-    function openQuickAdd(day, date, timeSlot) {
-        quickAddDay = getDayName(date);
-        quickAddDate = date;
-        quickAddTime = timeSlot;
-        
-        // Pre-fill form
-        form.day = quickAddDay;
-        form.startTime = timeSlot;
-        // Set end time 1 hour later
-        const [hour, minute] = timeSlot.split(':').map(Number);
-        const endHour = (hour + 1).toString().padStart(2, '0');
-        form.endTime = `${endHour}:${minute.toString().padStart(2, '0')}`;
-        
-        showQuickAddModal = true;
-        scheduleRecurring = true; // Default to recurring
-    }
-    
-    function proceedToFullForm() {
-        showQuickAddModal = false;
-        showModal = true;
-        editingId = null;
-        assignedStudentIds = [];
-        searchQuery = "";
-        
-        // If one-time schedule, store the specific date
-        if (!scheduleRecurring && quickAddDate) {
-            // Set time to noon UTC to prevent timezone issues
-            const dateForSchedule = new Date(quickAddDate);
-            dateForSchedule.setHours(12, 0, 0, 0); // Set to noon to avoid timezone shifting
-            form.specificDate = dateForSchedule.toISOString();
-        } else {
-            form.specificDate = null;
-        }
     }
 
     async function openModal(schedule = null) {
@@ -304,31 +253,20 @@
                 endTime: "",
                 teacherName: "",
                 room: "",
-                specificDate: null,
             };
             assignedStudentIds = [];
         }
         searchQuery = "";
-        errorMessage = "";
         showModal = true;
     }
 
     async function handleSubmit() {
         submitting = true;
-        errorMessage = ""; // Clear previous errors
         try {
             const url = editingId
                 ? `${API_URL}/schedules/${editingId}`
                 : `${API_URL}/schedules`;
             const method = editingId ? "PUT" : "POST";
-
-            const payload = {
-                ...form,
-                class: form.subject, // Use subject as class for internal purposes
-                studentIds: assignedStudentIds,
-            };
-            
-            console.log('Submitting schedule:', payload);
 
             const response = await fetch(url, {
                 method,
@@ -336,7 +274,10 @@
                     Authorization: `Bearer ${auth.getToken()}`,
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify(payload),
+                body: JSON.stringify({
+                    ...form,
+                    studentIds: assignedStudentIds,
+                }),
             });
 
             if (response.ok) {
@@ -344,15 +285,15 @@
                 await fetchSchedules();
                 toastStore.success(
                     editingId
-                        ? "Jadwal berhasil diperbarui!"
-                        : "Jadwal berhasil ditambahkan!"
+                        ? "Schedule updated successfully!"
+                        : "Schedule created successfully!"
                 );
             } else {
                 const data = await response.json();
-                errorMessage = data.error || "Gagal menyimpan jadwal";
+                toastStore.error(data.error || "Failed to save schedule");
             }
         } catch (error) {
-            errorMessage = "Error: " + error.message;
+            toastStore.error("Error: " + error.message);
         } finally {
             submitting = false;
         }
@@ -423,38 +364,10 @@
         link.click();
     }
 
-    async function openAttendanceModal(schedule, attendanceDate = null) {
+    async function openAttendanceModal(schedule) {
         selectedScheduleAttendance = schedule;
-        attendanceStatuses = {}; // Reset to empty
+        attendanceStatuses = {};
         showDetailModal = false;
-        
-        // Determine which date to use for attendance
-        let dateToUse;
-        if (attendanceDate) {
-            // Use the date passed from calendar (already a Date object)
-            const localDate = new Date(attendanceDate);
-            const year = localDate.getFullYear();
-            const month = String(localDate.getMonth() + 1).padStart(2, '0');
-            const day = String(localDate.getDate()).padStart(2, '0');
-            dateToUse = `${year}-${month}-${day}`;
-        } else if (schedule.specificDate) {
-            // For one-time schedules, use the specific date
-            const localDate = new Date(schedule.specificDate);
-            const year = localDate.getFullYear();
-            const month = String(localDate.getMonth() + 1).padStart(2, '0');
-            const day = String(localDate.getDate()).padStart(2, '0');
-            dateToUse = `${year}-${month}-${day}`;
-        } else {
-            // For recurring schedules without context, use today (local time)
-            const today = new Date();
-            const year = today.getFullYear();
-            const month = String(today.getMonth() + 1).padStart(2, '0');
-            const day = String(today.getDate()).padStart(2, '0');
-            dateToUse = `${year}-${month}-${day}`;
-        }
-        
-        currentAttendanceDate = dateToUse;
-        console.log('Opening attendance for date:', dateToUse, 'schedule:', schedule.subject);
 
         try {
             const response = await fetch(
@@ -466,10 +379,10 @@
 
             if (response.ok) {
                 enrolledStudents = await response.json();
-                console.log('Enrolled students:', enrolledStudents);
 
+                const today = new Date().toISOString().split("T")[0];
                 const attResponse = await fetch(
-                    `${API_URL}/attendance?scheduleId=${schedule.id}&date=${dateToUse}`,
+                    `${API_URL}/attendance?scheduleId=${schedule.id}&date=${today}`,
                     {
                         headers: { Authorization: `Bearer ${auth.getToken()}` },
                     },
@@ -477,13 +390,9 @@
 
                 if (attResponse.ok) {
                     const existingAtt = await attResponse.json();
-                    console.log('Fetched attendance:', existingAtt);
-                    console.log('Mapping attendance to students...');
                     existingAtt.forEach((att) => {
-                        console.log(`  Student ID: ${att.studentId}, Status: ${att.status}`);
                         attendanceStatuses[att.studentId] = att.status;
                     });
-                    console.log('Final attendanceStatuses:', attendanceStatuses);
                     attendanceStatuses = {...attendanceStatuses};
                 }
 
@@ -510,7 +419,6 @@
                             scheduleId: selectedScheduleAttendance.id,
                             studentId,
                             status,
-                            date: currentAttendanceDate, // Send the date we're viewing
                         }),
                     });
                 },
@@ -518,10 +426,6 @@
 
             await Promise.all(promises);
             toastStore.success("Attendance saved successfully!");
-            
-            // Reload attendance data for this date before closing
-            await openAttendanceModal(selectedScheduleAttendance, currentAttendanceDate);
-            
             showAttendanceModal = false;
             attendanceStatuses = {};
         } catch (error) {
@@ -541,25 +445,18 @@
         );
     });
     
+    $: uniqueClasses = [...new Set(schedules.map(s => s.class))].sort();
     $: uniqueTeachers = [...new Set(schedules.map(s => s.teacherName))].sort();
     
-    $: filteredSchedules = schedules.filter(schedule => {
-        if (filterTeacher && schedule.teacherName !== filterTeacher) return false;
-        if (filterSubject && !schedule.subject.toLowerCase().includes(filterSubject.toLowerCase())) return false;
-        return true;
-    });
-    
-    // Force weekDays to recalculate when currentWeekStart changes
-    $: weekDays = currentWeekStart ? getWeekDays() : [];
-    
-    $: {
-        if (currentWeekStart) {
-            const endDate = new Date(currentWeekStart);
-            endDate.setDate(currentWeekStart.getDate() + 6);
-            weekLabel = `${currentWeekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} - ${endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
-        }
+    // Update calendar when filters change
+    $: if (filterClass !== undefined || filterTeacher !== undefined || filterSubject !== undefined) {
+        updateCalendarEvents();
     }
 </script>
+
+<svelte:head>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@event-calendar/core@3/index.min.css">
+</svelte:head>
 
 <Layout activePage="/schedules" title="Schedules Management">
     <div class="space-y-6">
@@ -568,32 +465,19 @@
             <div>
                 <h2 class="text-3xl font-bold text-gray-900 dark:text-white">
                     <i class="fas fa-calendar-alt mr-2 text-primary-600"></i>
-                    Kalender Jadwal
+                    Schedule Calendar
                 </h2>
                 <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                    Kelola jadwal mingguan dengan tampilan kalender interaktif
+                    Manage weekly schedules with interactive calendar view
                 </p>
             </div>
-            <div class="flex items-center gap-3">
-                <!-- View Toggle -->
-                <div class="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
-                    <button
-                        on:click={() => currentView = 'calendar'}
-                        class="px-3 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 {currentView === 'calendar' ? 'bg-white dark:bg-gray-600 text-primary-600 dark:text-primary-400 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}"
-                    >
-                        <i class="fas fa-calendar"></i>
-                        <span class="hidden sm:inline">Kalender</span>
-                    </button>
-                    <button
-                        on:click={() => currentView = 'list'}
-                        class="px-3 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 {currentView === 'list' ? 'bg-white dark:bg-gray-600 text-primary-600 dark:text-primary-400 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}"
-                    >
-                        <i class="fas fa-list"></i>
-                        <span class="hidden sm:inline">Daftar</span>
-                    </button>
-                </div>
-                
-            </div>
+            <button
+                on:click={() => openModal()}
+                class="px-6 py-3 bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white rounded-xl flex items-center gap-2 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+            >
+                <i class="fas fa-plus"></i>
+                <span class="font-semibold">Add Schedule</span>
+            </button>
         </div>
 
         <!-- Filters -->
@@ -601,14 +485,24 @@
             <div class="flex flex-wrap items-center gap-3">
                 <div class="flex items-center gap-2">
                     <i class="fas fa-filter text-gray-500 dark:text-gray-400"></i>
-                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Filter:</span>
+                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Filters:</span>
                 </div>
+                
+                <select 
+                    bind:value={filterClass}
+                    class="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm focus:ring-2 focus:ring-primary-500 transition-all"
+                >
+                    <option value="">All Classes</option>
+                    {#each uniqueClasses as cls}
+                        <option value={cls}>Class {cls}</option>
+                    {/each}
+                </select>
                 
                 <select 
                     bind:value={filterTeacher}
                     class="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm focus:ring-2 focus:ring-primary-500 transition-all"
                 >
-                    <option value="">Semua Pengajar</option>
+                    <option value="">All Teachers</option>
                     {#each uniqueTeachers as teacher}
                         <option value={teacher}>{teacher}</option>
                     {/each}
@@ -617,366 +511,59 @@
                 <input 
                     type="text"
                     bind:value={filterSubject}
-                    placeholder="Cari mata pelajaran..."
+                    placeholder="Search subject..."
                     class="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm focus:ring-2 focus:ring-primary-500 transition-all flex-1 min-w-[200px]"
                 />
                 
-                {#if filterTeacher || filterSubject}
+                {#if filterClass || filterTeacher || filterSubject}
                     <button
                         on:click={() => {
+                            filterClass = "";
                             filterTeacher = "";
                             filterSubject = "";
                         }}
                         class="px-3 py-2 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200 rounded-lg text-sm transition-all flex items-center gap-2"
                     >
                         <i class="fas fa-times"></i>
-                        Hapus
+                        Clear
                     </button>
                 {/if}
-                
-                <div class="ml-auto text-xs text-gray-500 dark:text-gray-400">
-                    <span class="font-medium">{filteredSchedules.length}</span> jadwal
-                </div>
             </div>
         </div>
 
-        {#if currentView === 'calendar'}
-            <!-- Calendar View -->
-            {#if loading}
-                <div class="flex justify-center py-20">
-                    <div class="text-center">
-                        <i class="fas fa-spinner fa-spin text-5xl text-primary-500 mb-4"></i>
-                        <p class="text-gray-600 dark:text-gray-400">Loading calendar...</p>
-                    </div>
-                </div>
-            {:else}
-                <!-- Calendar Header -->
-                <div class="bg-white dark:bg-gray-800 rounded-t-xl shadow-lg p-4 border border-b-0 border-gray-200 dark:border-gray-700">
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-3">
-                        <button
-                            on:click={prevWeek}
-                            class="px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-all"
-                        >
-                            <i class="fas fa-chevron-left"></i>
-                        </button>
-                        <button
-                            on:click={goToToday}
-                            class="px-4 py-2 bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 hover:bg-primary-200 dark:hover:bg-primary-900/50 rounded-lg font-medium transition-all"
-                        >
-                            Hari Ini
-                        </button>
-                        <button
-                            on:click={nextWeek}
-                            class="px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-all"
-                        >
-                            <i class="fas fa-chevron-right"></i>
-                        </button>
-                    </div>
-                    
-                    <h3 class="text-lg font-bold text-gray-900 dark:text-white">
-                        {weekLabel}
-                    </h3>
-                    
-                    <div class="w-32"></div>
+        <!-- Calendar -->
+        {#if loading}
+            <div class="flex justify-center py-20">
+                <div class="text-center">
+                    <i class="fas fa-spinner fa-spin text-5xl text-primary-500 mb-4"></i>
+                    <p class="text-gray-600 dark:text-gray-400">Loading calendar...</p>
                 </div>
             </div>
-
-            <!-- Calendar Grid -->
-            <div class="bg-white dark:bg-gray-800 rounded-b-xl shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700">
-                <div class="overflow-x-auto">
-                    <div class="min-w-[900px]">
-                        <!-- Day Headers -->
-                        <div class="grid grid-cols-8 border-b-2 border-gray-300 dark:border-gray-600">
-                            <div class="p-3 bg-gray-50 dark:bg-gray-700 border-r border-gray-200 dark:border-gray-600">
-                                <span class="text-xs font-semibold text-gray-600 dark:text-gray-400">TIME</span>
-                            </div>
-                            {#each weekDays as day}
-                                <div class="p-3 bg-gray-50 dark:bg-gray-700 border-r border-gray-200 dark:border-gray-600 last:border-r-0">
-                                    <div class="text-center">
-                                        <p class="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">
-                                            {getDayName(day).substring(0, 3)}
-                                        </p>
-                                        <p class="text-lg font-bold mt-1 {isToday(day) ? 'text-primary-600 dark:text-primary-400' : 'text-gray-900 dark:text-white'}">
-                                            {day.getDate()}
-                                        </p>
-                                        {#if isToday(day)}
-                                            <div class="w-2 h-2 bg-primary-600 rounded-full mx-auto mt-1"></div>
-                                        {/if}
-                                    </div>
-                                </div>
-                            {/each}
-                        </div>
-
-                        <!-- Time Slots -->
-                        {#each timeSlots as timeSlot}
-                            <div class="grid grid-cols-8 border-b border-gray-200 dark:border-gray-600">
-                                <div class="p-3 bg-gray-50 dark:bg-gray-700 border-r border-gray-200 dark:border-gray-600 flex items-start">
-                                    <span class="text-xs font-medium text-gray-600 dark:text-gray-400">{timeSlot}</span>
-                                </div>
-                                {#each weekDays as day}
-                                    {@const daySchedules = getSchedulesForDayAndTime(getDayName(day), timeSlot, day)}
-                                    <div class="p-2 border-r border-gray-200 dark:border-gray-600 last:border-r-0 min-h-[80px] transition-colors relative group">
-                                        {#if daySchedules.length > 0}
-                                            {#each daySchedules as schedule}
-                                                <button
-                                                    on:click={() => openScheduleDetail(schedule, day)}
-                                                    class="w-full text-left p-2 rounded-lg mb-2 hover:scale-105 transition-transform duration-200 shadow-sm hover:shadow-md"
-                                                    style="background-color: {getDayColor(schedule.day)}; color: white;"
-                                                >
-                                                    <p class="text-xs font-bold truncate">{schedule.subject}</p>
-                                                    <p class="text-xs opacity-75 truncate">
-                                                        <i class="fas fa-clock mr-1"></i>
-                                                        {schedule.startTime.substring(0, 5)} - {schedule.endTime.substring(0, 5)}
-                                                    </p>
-                                                    <p class="text-xs opacity-75 truncate">
-                                                        <i class="fas fa-door-open mr-1"></i>
-                                                        {schedule.room}
-                                                    </p>
-                                                    {#if schedule.specificDate}
-                                                        <p class="text-xs opacity-75 truncate mt-1">
-                                                            <i class="fas fa-calendar-day mr-1"></i>
-                                                            Sekali
-                                                        </p>
-                                                    {/if}
-                                                </button>
-                                            {/each}
-                                        {:else}
-                                            <!-- Empty slot with hover add button -->
-                                            <button
-                                                on:click={() => openQuickAdd(getDayName(day), day, timeSlot)}
-                                                class="w-full h-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg"
-                                            >
-                                                <div class="text-center">
-                                                    <i class="fas fa-plus-circle text-2xl text-primary-500 dark:text-primary-400 mb-1"></i>
-                                                    <p class="text-xs text-primary-600 dark:text-primary-300 font-medium">Tambah Jadwal</p>
-                                                </div>
-                                            </button>
-                                        {/if}
-                                    </div>
-                                {/each}
-                            </div>
-                        {/each}
-                    </div>
-                </div>
-            </div>
-            {/if}
         {:else}
-            <!-- List View -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-                {#if loading}
-                    <div class="flex justify-center py-20">
-                        <div class="text-center">
-                            <i class="fas fa-spinner fa-spin text-5xl text-primary-500 mb-4"></i>
-                            <p class="text-gray-600 dark:text-gray-400">Memuat jadwal...</p>
-                        </div>
-                    </div>
-                {:else if filteredSchedules.length === 0}
-                    <div class="text-center py-20">
-                        <i class="fas fa-calendar-times text-6xl text-gray-300 dark:text-gray-600 mb-4"></i>
-                        <p class="text-gray-600 dark:text-gray-400">Tidak ada jadwal ditemukan</p>
-                    </div>
-                {:else}
-                    <div class="overflow-x-auto">
-                        <table class="w-full">
-                            <thead class="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
-                                <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Mata Pelajaran</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Hari</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Waktu</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Pengajar</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Ruangan</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Tipe</th>
-                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                                {#each filteredSchedules as schedule}
-                                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer" on:click={() => openScheduleDetail(schedule)}>
-                                        <td class="px-6 py-4 whitespace-nowrap">
-                                            <div class="text-sm font-medium text-gray-900 dark:text-white">{schedule.subject}</div>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap">
-                                            <div class="text-sm text-gray-900 dark:text-white">
-                                                {#if schedule.specificDate}
-                                                    {new Date(schedule.specificDate).toLocaleDateString('id-ID', { weekday: 'short', month: 'short', day: 'numeric' })}
-                                                {:else}
-                                                    {schedule.day}
-                                                {/if}
-                                            </div>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap">
-                                            <div class="text-sm text-gray-900 dark:text-white">
-                                                <i class="fas fa-clock mr-1 text-gray-400"></i>
-                                                {schedule.startTime.substring(0, 5)} - {schedule.endTime.substring(0, 5)}
-                                            </div>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap">
-                                            <div class="text-sm text-gray-900 dark:text-white">{schedule.teacherName}</div>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap">
-                                            <div class="text-sm text-gray-900 dark:text-white">
-                                                <i class="fas fa-door-open mr-1 text-gray-400"></i>
-                                                {schedule.room}
-                                            </div>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap">
-                                            {#if schedule.specificDate}
-                                                <span class="inline-flex px-2 py-1 text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full">
-                                                    <i class="fas fa-calendar-day mr-1"></i> Sekali
-                                                </span>
-                                            {:else}
-                                                <span class="inline-flex px-2 py-1 text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full">
-                                                    <i class="fas fa-repeat mr-1"></i> Berulang
-                                                </span>
-                                            {/if}
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                            <button
-                                                on:click|stopPropagation={() => openScheduleDetail(schedule)}
-                                                class="text-primary-600 dark:text-primary-400 hover:text-primary-900 dark:hover:text-primary-300 mr-3"
-                                            >
-                                                <i class="fas fa-eye"></i>
-                                            </button>
-                                            <button
-                                                on:click|stopPropagation={() => openModal(schedule)}
-                                                class="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 mr-3"
-                                            >
-                                                <i class="fas fa-edit"></i>
-                                            </button>
-                                            <button
-                                                on:click|stopPropagation={() => confirmDeleteSchedule(schedule.id)}
-                                                class="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
-                                            >
-                                                <i class="fas fa-trash"></i>
-                                            </button>
-                                        </td>
-                                    </tr>
-                                {/each}
-                            </tbody>
-                        </table>
-                    </div>
-                {/if}
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+                <div bind:this={calendarEl} class="calendar-container p-4"></div>
             </div>
         {/if}
-    </div>
-</Layout>
 
-<!-- Quick Add Modal -->
-{#if showQuickAddModal}
-    <div
-        class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn"
-        on:click={() => (showQuickAddModal = false)}
-    >
-        <div
-            class="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full shadow-2xl transform transition-all"
-            on:click|stopPropagation
-        >
-            <div class="p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-primary-50 to-purple-50 dark:from-gray-700 dark:to-gray-800">
-                <div class="flex items-start justify-between">
-                    <div class="flex-1">
-                        <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-2">
-                            <i class="fas fa-calendar-plus mr-2 text-primary-600"></i>
-                            Tambah Jadwal Baru
-                        </h3>
-                        <div class="flex flex-wrap gap-2 text-sm">
-                            <span class="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full font-medium">
-                                <i class="fas fa-calendar mr-1"></i>
-                                {quickAddDay}
-                            </span>
-                            <span class="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full font-medium">
-                                <i class="fas fa-clock mr-1"></i>
-                                {quickAddTime}
-                            </span>
-                            {#if quickAddDate}
-                                <span class="px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full font-medium">
-                                    <i class="fas fa-calendar-day mr-1"></i>
-                                    {quickAddDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                </span>
-                            {/if}
+        <!-- Legend -->
+        <div class="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-700 rounded-xl p-4 border border-blue-200 dark:border-gray-600">
+            <div class="flex flex-wrap items-center gap-4">
+                <span class="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                    <i class="fas fa-info-circle mr-2"></i>
+                    Class Colors:
+                </span>
+                <div class="flex flex-wrap gap-3">
+                    {#each uniqueClasses as cls}
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded" style="background-color: {getClassColor(cls)}"></div>
+                            <span class="text-sm text-gray-700 dark:text-gray-300">Class {cls}</span>
                         </div>
-                    </div>
-                    <button
-                        on:click={() => (showQuickAddModal = false)}
-                        class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
-                    >
-                        <i class="fas fa-times text-xl"></i>
-                    </button>
-                </div>
-            </div>
-
-            <div class="p-6 space-y-6">
-                <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
-                    <p class="text-sm text-blue-700 dark:text-blue-300 font-medium mb-3">
-                        <i class="fas fa-info-circle mr-2"></i>
-                        Pilih tipe jadwal:
-                    </p>
-                    
-                    <div class="space-y-3">
-                        <label class="flex items-start gap-3 p-3 bg-white dark:bg-gray-800 rounded-lg border-2 cursor-pointer transition-all {scheduleRecurring ? 'border-primary-500 shadow-md' : 'border-gray-200 dark:border-gray-600 hover:border-primary-300'}">
-                            <input
-                                type="radio"
-                                bind:group={scheduleRecurring}
-                                value={true}
-                                class="mt-1 w-5 h-5 text-primary-600"
-                            />
-                            <div class="flex-1">
-                                <p class="font-semibold text-gray-900 dark:text-white">
-                                    <i class="fas fa-repeat mr-2 text-primary-600"></i>
-                                    Jadwal Berulang
-                                </p>
-                                <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                                    Setiap {quickAddDay} pukul {quickAddTime}
-                                </p>
-                                <p class="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                                    (Untuk kelas rutin mingguan)
-                                </p>
-                            </div>
-                        </label>
-                        
-                        <label class="flex items-start gap-3 p-3 bg-white dark:bg-gray-800 rounded-lg border-2 cursor-pointer transition-all {!scheduleRecurring ? 'border-primary-500 shadow-md' : 'border-gray-200 dark:border-gray-600 hover:border-primary-300'}">
-                            <input
-                                type="radio"
-                                bind:group={scheduleRecurring}
-                                value={false}
-                                class="mt-1 w-5 h-5 text-primary-600"
-                            />
-                            <div class="flex-1">
-                                <p class="font-semibold text-gray-900 dark:text-white">
-                                    <i class="fas fa-calendar-day mr-2 text-green-600"></i>
-                                    Jadwal Sekali
-                                </p>
-                                <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                                    Hanya pada {quickAddDate?.toLocaleDateString('id-ID', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
-                                </p>
-                                <p class="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                                    (Untuk acara khusus atau pengganti)
-                                </p>
-                            </div>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="flex gap-3">
-                    <button
-                        on:click={() => (showQuickAddModal = false)}
-                        class="flex-1 px-4 py-3 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-xl font-medium transition-all"
-                    >
-                        <i class="fas fa-times mr-2"></i>
-                        Batal
-                    </button>
-                    <button
-                        on:click={proceedToFullForm}
-                        class="flex-1 px-4 py-3 bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white rounded-xl font-medium shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
-                    >
-                        <i class="fas fa-arrow-right"></i>
-                        Lanjutkan
-                    </button>
+                    {/each}
                 </div>
             </div>
         </div>
     </div>
-{/if}
+</Layout>
 
 <!-- Schedule Detail Modal -->
 {#if showDetailModal && selectedScheduleDetail}
@@ -1038,18 +625,11 @@
 
                 <div class="grid grid-cols-3 gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
                     <button
-                        on:click={() => {
-                            // For recurring schedules, always use today's date
-                            // For one-time schedules, use the specific date or viewDate
-                            const dateToUse = selectedScheduleDetail.specificDate 
-                                ? selectedScheduleDetail.viewDate 
-                                : null;
-                            openAttendanceModal(selectedScheduleDetail, dateToUse);
-                        }}
+                        on:click={() => openAttendanceModal(selectedScheduleDetail)}
                         class="flex flex-col items-center gap-2 p-4 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-xl transition-all border-2 border-blue-200 dark:border-blue-700"
                     >
                         <i class="fas fa-clipboard-list text-2xl text-blue-600 dark:text-blue-400"></i>
-                        <span class="text-sm font-medium text-blue-700 dark:text-blue-300">Absensi</span>
+                        <span class="text-sm font-medium text-blue-700 dark:text-blue-300">Attendance</span>
                     </button>
                     <button
                         on:click={() => viewScheduleQR(selectedScheduleDetail)}
@@ -1088,34 +668,21 @@
             class="bg-white dark:bg-gray-800 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6"
         >
             <h3 class="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
-                {editingId ? "Edit" : "Tambah"} Jadwal
+                {editingId ? "Edit" : "Add"} Schedule
             </h3>
 
             <form on:submit|preventDefault={handleSubmit} class="space-y-6">
-                <!-- Error Message Display -->
-                {#if errorMessage}
-                    <div class="bg-red-50 dark:bg-red-900/30 border-l-4 border-red-500 p-4 rounded-lg">
-                        <div class="flex items-center gap-3">
-                            <i class="fas fa-exclamation-circle text-red-500 text-xl"></i>
-                            <div>
-                                <p class="text-sm font-semibold text-red-800 dark:text-red-200">Error</p>
-                                <p class="text-sm text-red-700 dark:text-red-300 mt-1">{errorMessage}</p>
-                            </div>
-                        </div>
-                    </div>
-                {/if}
-
                 <div>
                     <h4
                         class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3 uppercase"
                     >
-                        Informasi Jadwal
+                        Schedule Information
                     </h4>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label
                                 class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1"
-                                >Mata Pelajaran</label
+                                >Subject</label
                             >
                             <input
                                 bind:value={form.subject}
@@ -1126,7 +693,18 @@
                         <div>
                             <label
                                 class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1"
-                                >Hari</label
+                                >Class</label
+                            >
+                            <input
+                                bind:value={form.class}
+                                required
+                                class="w-full px-3 py-2 border border-gray-300 dark:bg-gray-700 dark:border-gray-600 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500"
+                            />
+                        </div>
+                        <div>
+                            <label
+                                class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1"
+                                >Day</label
                             >
                             <select
                                 bind:value={form.day}
@@ -1140,7 +718,7 @@
                         <div>
                             <label
                                 class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1"
-                                >Ruangan</label
+                                >Room</label
                             >
                             <input
                                 bind:value={form.room}
@@ -1151,7 +729,7 @@
                         <div>
                             <label
                                 class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1"
-                                >Waktu Mulai</label
+                                >Start Time</label
                             >
                             <input
                                 type="time"
@@ -1163,7 +741,7 @@
                         <div>
                             <label
                                 class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1"
-                                >Waktu Selesai</label
+                                >End Time</label
                             >
                             <input
                                 type="time"
@@ -1175,7 +753,7 @@
                         <div class="col-span-2">
                             <label
                                 class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1"
-                                >Nama Pengajar</label
+                                >Teacher Name</label
                             >
                             <input
                                 bind:value={form.teacherName}
@@ -1191,7 +769,7 @@
                         class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3 uppercase"
                     >
                         <i class="fas fa-users mr-2"></i>
-                        Tetapkan Siswa ({assignedStudentIds.length} dipilih)
+                        Assign Students ({assignedStudentIds.length} selected)
                     </h4>
 
                     {#if allStudents.length === 0}
@@ -1200,7 +778,8 @@
                         >
                             <i class="fas fa-users-slash text-4xl mb-2"></i>
                             <p>
-                                Tidak ada siswa. Silakan tambahkan siswa terlebih dahulu.
+                                No students available. Please add students
+                                first.
                             </p>
                         </div>
                     {:else}
@@ -1208,7 +787,7 @@
                             <input
                                 type="text"
                                 bind:value={searchQuery}
-                                placeholder="Cari siswa berdasarkan nama atau kelas..."
+                                placeholder="Search students by name, ID, or class..."
                                 class="w-full px-3 py-2 border border-gray-300 dark:bg-gray-700 dark:border-gray-600 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
                             />
                         </div>
@@ -1473,3 +1052,33 @@
 <!-- Loading Overlay -->
 <LoadingOverlay show={processing} message={processingMessage} />
 
+<style>
+    :global(.calendar-container .ec) {
+        --ec-bg-color: rgb(255 255 255);
+        --ec-border-color: rgb(229 231 235);
+        --ec-button-bg-color: transparent;
+        --ec-button-text-color: rgb(75 85 99);
+        --ec-button-active-bg-color: rgb(59 130 246);
+        --ec-button-active-text-color: rgb(255 255 255);
+        --ec-today-bg-color: rgb(219 234 254);
+    }
+
+    :global(.dark .calendar-container .ec) {
+        --ec-bg-color: rgb(31 41 55);
+        --ec-border-color: rgb(75 85 99);
+        --ec-text-color: rgb(243 244 246);
+        --ec-button-text-color: rgb(209 213 219);
+        --ec-today-bg-color: rgb(30 58 138);
+    }
+
+    :global(.ec-event) {
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    :global(.ec-event:hover) {
+        opacity: 0.9;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    }
+</style>

@@ -168,25 +168,25 @@
         {:else if stats}
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatsCard
-                    title="Total Students"
+                    title="Total Siswa"
                     value={stats.totalStudents}
                     icon="fa-users"
                     color="blue"
                 />
                 <StatsCard
-                    title="Present Today"
+                    title="Hadir Hari Ini"
                     value={stats.presentCount}
                     icon="fa-check-circle"
                     color="green"
                 />
                 <StatsCard
-                    title="Sick/Permission"
+                    title="Sakit/Izin"
                     value={stats.sickCount + stats.permissionCount}
                     icon="fa-exclamation-triangle"
                     color="orange"
                 />
                 <StatsCard
-                    title="Absent Today"
+                    title="Alfa Hari Ini"
                     value={stats.absentCount}
                     icon="fa-times-circle"
                     color="red"
@@ -197,13 +197,13 @@
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                     <i class="fas fa-calendar-day mr-2 text-primary-600"></i>
-                    Today's Schedules
+                    Jadwal Hari Ini
                 </h3>
 
                 {#if schedules.length === 0}
                     <div class="text-center py-12 text-gray-500 dark:text-gray-400">
                         <i class="fas fa-calendar-times text-4xl mb-2"></i>
-                        <p>No schedules for today</p>
+                        <p>Tidak ada jadwal hari ini</p>
                     </div>
                 {:else}
                     <div
@@ -220,9 +220,6 @@
                                         <h4 class="font-semibold text-gray-900 dark:text-white">
                                             {schedule.subject}
                                         </h4>
-                                        <p class="text-sm text-gray-500 dark:text-gray-400">
-                                            Class: {schedule.class}
-                                        </p>
                                     </div>
                                     <span
                                         class="px-2 py-1 bg-gradient-to-r from-primary-500 to-primary-600 text-white rounded-lg text-xs font-medium shadow-md"
@@ -240,7 +237,7 @@
                                     </p>
                                     <p>
                                         <i class="fas fa-door-open w-4"></i>
-                                        Room {schedule.room}
+                                        Ruangan {schedule.room}
                                     </p>
                                 </div>
                                 <div class="flex gap-2">

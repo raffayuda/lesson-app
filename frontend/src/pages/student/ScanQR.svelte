@@ -118,7 +118,7 @@
             const data = await response.json();
 
             if (response.ok) {
-                success = `✅ Kehadiran berhasil dicatat untuk ${data.schedule.subject} - ${data.schedule.class}`;
+                success = `Kehadiran berhasil dicatat untuk ${data.schedule.subject} - ${data.schedule.class}`;
                 error = "";
 
                 // Invalidate cache and refetch
