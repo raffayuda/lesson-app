@@ -2,198 +2,127 @@
     import Layout from "../../components/Layout.svelte";
     import { auth, API_URL } from "../../stores/auth.js";
     import { onMount } from "svelte";
-    import * as XLSX from "xlsx";
 
-    let attendances = [];
-    let allAttendances = []; // For stats
+    let schedules = [];
     let loading = true;
-    let dataFetched = false; // Cache flag
+    
+    // Modal for attendance history
+    let showHistoryModal = false;
+    let selectedSchedule = null;
+    let scheduleAttendances = [];
+    let loadingHistory = false;
 
-    // Pagination
+    // Pagination for modal
     let currentPage = 1;
     let limit = 10;
     let totalPages = 1;
 
-    // Filters
-    let filterStatus = "";
-    let filterSubject = "";
-    let filterStartDate = "";
-    let filterEndDate = "";
-    let filterTimeout; // Debouncing
-
     onMount(() => {
-        fetchAttendances();
+        fetchSchedules();
     });
 
-    async function fetchAttendances() {
-        // Skip if already fetched (cache)
-        if (dataFetched) {
-            applyFiltersAndPagination();
-            return;
-        }
-
+    async function fetchSchedules() {
         loading = true;
         try {
             const student = $auth.user.student;
             if (!student) return;
 
             const response = await fetch(
-                `${API_URL}/attendance?studentId=${student.id}`,
+                `${API_URL}/students/${student.id}/schedules`,
                 {
                     headers: { Authorization: `Bearer ${auth.getToken()}` },
                 },
             );
 
             if (response.ok) {
-                allAttendances = await response.json();
-                dataFetched = true; // Mark as cached
-                applyFiltersAndPagination();
+                schedules = await response.json();
+                console.log('Fetched schedules:', schedules);
             }
         } catch (error) {
-            console.error("Error fetching attendance:", error);
+            console.error("Error fetching schedules:", error);
         } finally {
             loading = false;
         }
     }
 
-    function applyFiltersAndPagination() {
-        // Early return if no data
-        if (!allAttendances || allAttendances.length === 0) {
-            attendances = [];
-            totalPages = 1;
-            return;
-        }
-
-        let filtered = allAttendances;
-
-        // Apply filters only if they exist
-        if (filterStatus) {
-            filtered = filtered.filter((a) => a.status === filterStatus);
-        }
-        if (filterSubject) {
-            filtered = filtered.filter(
-                (a) => a.schedule.subject === filterSubject,
-            );
-        }
-        if (filterStartDate) {
-            const startDate = new Date(filterStartDate);
-            filtered = filtered.filter(
-                (a) => new Date(a.checkInTime) >= startDate,
-            );
-        }
-        if (filterEndDate) {
-            const endDate = new Date(filterEndDate);
-            endDate.setHours(23, 59, 59);
-            filtered = filtered.filter(
-                (a) => new Date(a.checkInTime) <= endDate,
-            );
-        }
-
-        // Calculate pagination
-        totalPages = Math.ceil(filtered.length / limit) || 1;
-        const start = (currentPage - 1) * limit;
-        const end = start + limit;
-        attendances = filtered.slice(start, end);
+    async function openHistory(schedule) {
+        selectedSchedule = schedule;
+        showHistoryModal = true;
+        currentPage = 1;
+        
+        await fetchScheduleHistory();
     }
 
-    function clearFilters() {
-        filterStatus = "";
-        filterSubject = "";
-        filterStartDate = "";
-        filterEndDate = "";
-        currentPage = 1;
-        applyFiltersAndPagination();
-    }
+    async function fetchScheduleHistory() {
+        loadingHistory = true;
+        try {
+            const student = $auth.user.student;
+            if (!student || !selectedSchedule) return;
 
-    // Manual filter application
-    function applyFilters() {
-        currentPage = 1;
-        applyFiltersAndPagination();
+            const response = await fetch(
+                `${API_URL}/attendance?studentId=${student.id}&scheduleId=${selectedSchedule.id}`,
+                {
+                    headers: { Authorization: `Bearer ${auth.getToken()}` },
+                },
+            );
+
+            if (response.ok) {
+                const allData = await response.json();
+                
+                // Calculate pagination
+                totalPages = Math.ceil(allData.length / limit) || 1;
+                const start = (currentPage - 1) * limit;
+                const end = start + limit;
+                scheduleAttendances = allData.slice(start, end);
+            }
+        } catch (error) {
+            console.error("Error fetching schedule history:", error);
+        } finally {
+            loadingHistory = false;
+        }
     }
 
     function goToPage(page) {
         if (page >= 1 && page <= totalPages) {
             currentPage = page;
-            applyFiltersAndPagination();
+            fetchScheduleHistory();
         }
     }
 
     function nextPage() {
         if (currentPage < totalPages) {
             currentPage++;
-            applyFiltersAndPagination();
+            fetchScheduleHistory();
         }
     }
 
     function prevPage() {
         if (currentPage > 1) {
             currentPage--;
-            applyFiltersAndPagination();
+            fetchScheduleHistory();
         }
     }
 
-    function exportToExcel() {
-        // Get ALL filtered data, not just current page
-        let filtered = allAttendances;
+    function getScheduleType(schedule) {
+        return schedule.specificDate ? "Tanggal Tertentu" : "Berulang";
+    }
 
-        // Apply same filters as applyFiltersAndPagination
-        if (filterStatus) {
-            filtered = filtered.filter((a) => a.status === filterStatus);
+    function getScheduleLabel(schedule) {
+        if (schedule.specificDate) {
+            const date = new Date(schedule.specificDate);
+            return `${date.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
+        } else {
+            // Day is already in Indonesian in database (Senin, Selasa, etc.)
+            return `Setiap ${schedule.day}`;
         }
-        if (filterSubject) {
-            filtered = filtered.filter(
-                (a) => a.schedule.subject === filterSubject,
-            );
-        }
-        if (filterStartDate) {
-            const startDate = new Date(filterStartDate);
-            filtered = filtered.filter(
-                (a) => new Date(a.checkInTime) >= startDate,
-            );
-        }
-        if (filterEndDate) {
-            const endDate = new Date(filterEndDate);
-            endDate.setHours(23, 59, 59);
-            filtered = filtered.filter(
-                (a) => new Date(a.checkInTime) <= endDate,
-            );
-        }
-
-        // Map ALL filtered data for Excel
-        const data = filtered.map((a) => ({
-            Date: new Date(a.checkInTime).toLocaleDateString(),
-            Time: new Date(a.checkInTime).toLocaleTimeString(),
-            Subject: a.schedule.subject,
-            Class: a.schedule.class,
-            Status: getStatusLabel(a.status),
-            Method: a.method,
-        }));
-
-        const wb = XLSX.utils.book_new();
-        const ws = XLSX.utils.json_to_sheet(data);
-
-        ws["!cols"] = [
-            { wch: 12 },
-            { wch: 12 },
-            { wch: 20 },
-            { wch: 10 },
-            { wch: 10 },
-            { wch: 10 },
-        ];
-
-        XLSX.utils.book_append_sheet(wb, ws, "Kehadiran Saya");
-        const filename = `my-attendance-${new Date().toISOString().split("T")[0]}.xlsx`;
-        XLSX.writeFile(wb, filename);
-
-        console.log(`Exported ${data.length} attendance records to Excel`);
     }
 
     function getStatusColor(status) {
         const colors = {
-            PRESENT: "bg-green-100 text-green-800",
-            LATE: "bg-yellow-100 text-yellow-800",
-            EXCUSED: "bg-blue-100 text-blue-800",
-            ABSENT: "bg-red-100 text-red-800",
+            PRESENT: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+            SICK: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+            PERMISSION: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+            ABSENT: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
         };
         return colors[status] || "bg-gray-100 text-gray-800";
     }
@@ -201,355 +130,275 @@
     function getStatusLabel(status) {
         const labels = {
             PRESENT: "Hadir",
-            LATE: "Terlambat",
-            EXCUSED: "Izin",
-            ABSENT: "Tidak Hadir",
+            SICK: "Sakit",
+            PERMISSION: "Izin",
+            ABSENT: "Alfa",
         };
         return labels[status] || status;
     }
-
-    // Get unique subjects for filter
-    $: subjects = [...new Set(allAttendances.map((a) => a.schedule.subject))];
-
-    // Calculate stats
-    $: stats = {
-        total: allAttendances.length,
-        present: allAttendances.filter((a) => a.status === "PRESENT").length,
-        late: allAttendances.filter((a) => a.status === "LATE").length,
-        excused: allAttendances.filter((a) => a.status === "EXCUSED").length,
-        absent: allAttendances.filter((a) => a.status === "ABSENT").length,
-        rate:
-            allAttendances.length > 0
-                ? (
-                      (allAttendances.filter((a) => a.status === "PRESENT")
-                          .length /
-                          allAttendances.length) *
-                      100
-                  ).toFixed(1)
-                : 0,
-    };
-
-    // Removed automatic reactive filtering - now using manual Apply Filter button
 </script>
 
-<Layout activePage="/attendance" title="Kehadiran Saya">
+<Layout activePage="/attendance" title="Jadwal Saya">
     <div class="space-y-6">
         <!-- Header -->
-        <div
-            class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
-        >
+        <div class="flex justify-between items-center">
             <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
-                <i class="fas fa-clipboard-check mr-2"></i>
-                Kehadiran Saya
+                <i class="fas fa-calendar-alt mr-2"></i>
+                Jadwal Saya
             </h2>
-            <button
-                on:click={exportToExcel}
-                disabled={attendances.length === 0}
-                class="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg flex items-center gap-2"
-            >
-                <i class="fas fa-file-excel"></i>
-                <span>Ekspor Excel</span>
-            </button>
         </div>
 
-        <!-- Stats Cards -->
-        <div class="grid grid-cols-2 md:grid-cols-6 gap-4">
-            <div
-                class="bg-white rounded-lg shadow p-4 text-center dark:bg-gray-800 border-l-4 border-gray-500"
-            >
-                <p class="text-2xl font-bold text-gray-900 dark:text-white">
-                    {stats.total}
-                </p>
-                <p class="text-xs text-gray-500 mt-1 dark:text-gray-400">
-                    Total
-                </p>
+        <!-- Loading State -->
+        {#if loading}
+            <div class="flex items-center justify-center py-20">
+                <i class="fas fa-spinner fa-spin text-4xl text-primary-500"></i>
             </div>
-            <div
-                class="bg-white rounded-lg shadow p-4 text-center dark:bg-gray-800 border-l-4 border-green-500"
-            >
-                <p class="text-2xl font-bold text-green-600">
-                    {stats.present}
-                </p>
-                <p class="text-xs text-gray-500 mt-1 dark:text-gray-400">
-                    Hadir
-                </p>
+        {:else if schedules.length === 0}
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-12 text-center">
+                <i class="fas fa-calendar-times text-6xl text-gray-300 dark:text-gray-600 mb-4"></i>
+                <p class="text-gray-500 dark:text-gray-400 text-lg">Belum ada jadwal</p>
             </div>
-            <div
-                class="bg-white rounded-lg shadow p-4 text-center dark:bg-gray-800 border-l-4 border-yellow-500"
-            >
-                <p class="text-2xl font-bold text-yellow-600">{stats.late}</p>
-                <p class="text-xs text-gray-500 mt-1">Terlambat</p>
-            </div>
-            <div
-                class="bg-white rounded-lg shadow p-4 text-center border-l-4 border-blue-500 dark:bg-gray-800"
-            >
-                <p class="text-2xl font-bold text-blue-600">
-                    {stats.excused}
-                </p>
-                <p class="text-xs text-gray-500 mt-1">Izin</p>
-            </div>
-            <div
-                class="bg-white rounded-lg shadow p-4 text-center border-l-4 border-red-500 dark:bg-gray-800"
-            >
-                <p class="text-2xl font-bold text-red-600">{stats.absent}</p>
-                <p class="text-xs text-gray-500 mt-1 dark:text-gray-400">
-                    Tidak Hadir
-                </p>
-            </div>
-            <div
-                class="bg-white rounded-lg shadow p-4 text-center border-l-4 border-indigo-500 dark:bg-gray-800"
-            >
-                <p class="text-2xl font-bold text-indigo-600">
-                    {stats.rate}%
-                </p>
-                <p class="text-xs text-gray-500 mt-1 dark:text-gray-400">
-                    Kehadiran
-                </p>
-            </div>
-        </div>
-
-        <!-- Filters -->
-        <div class="bg-white rounded-lg shadow p-6 dark:bg-gray-800">
-            <h3
-                class="text-lg font-semibold text-gray-900 mb-4 dark:text-white"
-            >
-                <i class="fas fa-filter mr-2"></i>
-                Filter
-            </h3>
-
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div>
-                    <label
-                        class="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-400"
-                        >Status</label
-                    >
-                    <select
-                        bind:value={filterStatus}
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
-                    >
-                        <option value="">Semua Status</option>
-                        <option value="PRESENT">Hadir</option>
-                        <option value="LATE">Terlambat</option>
-                        <option value="EXCUSED">Izin</option>
-                        <option value="ABSENT">Tidak Hadir</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label
-                        class="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-400"
-                        >Mata Pelajaran</label
-                    >
-                    <select
-                        bind:value={filterSubject}
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
-                    >
-                        <option value="">Semua Mata Pelajaran</option>
-                        {#each subjects as subject}
-                            <option value={subject}>{subject}</option>
-                        {/each}
-                    </select>
-                </div>
-
-                <div>
-                    <label
-                        class="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-400"
-                        >Tanggal Mulai</label
-                    >
-                    <input
-                        type="date"
-                        bind:value={filterStartDate}
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
-                    />
-                </div>
-
-                <div>
-                    <label
-                        class="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-400"
-                        >Tanggal Akhir</label
-                    >
-                    <input
-                        type="date"
-                        bind:value={filterEndDate}
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
-                    />
-                </div>
-            </div>
-
-            <div class="flex gap-3 mt-4">
-                <button
-                    on:click={applyFilters}
-                    class="px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-sm"
-                >
-                    <i class="fas fa-search mr-2"></i>
-                    Terapkan Filter
-                </button>
-                <button
-                    on:click={clearFilters}
-                    class="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg text-sm dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-300"
-                >
-                    <i class="fas fa-times mr-2"></i>
-                    Hapus Filter
-                </button>
-            </div>
-        </div>
-
-        <!-- Attendance Table -->
-        <div
-            class="bg-white rounded-lg shadow overflow-x-auto dark:bg-gray-800"
-        >
-            {#if loading}
-                <div class="flex justify-center py-20">
-                    <i class="fas fa-spinner fa-spin text-4xl text-primary-500"
-                    ></i>
-                </div>
-            {:else if attendances.length === 0}
-                <div class="text-center py-20 text-gray-500">
-                    <i class="fas fa-inbox text-4xl mb-2"></i>
-                    <p>Tidak ada catatan kehadiran ditemukan</p>
-                </div>
-            {:else}
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50 dark:bg-gray-700">
-                        <tr>
-                            <th
-                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400"
-                                >Tanggal & Waktu</th
-                            >
-                            <th
-                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400"
-                                >Mata Pelajaran</th
-                            >
-                            <th
-                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400"
-                                >Kelas</th
-                            >
-                            <th
-                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400"
-                                >Status</th
-                            >
-                            <th
-                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400"
-                                >Metode</th
-                            >
-                        </tr>
-                    </thead>
-                    <tbody
-                        class="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700"
-                    >
-                        {#each attendances as attendance}
-                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
-                                <td
-                                    class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300"
-                                >
-                                    <div>
-                                        {new Date(
-                                            attendance.checkInTime,
-                                        ).toLocaleDateString()}
-                                    </div>
-                                    <div class="text-xs text-gray-500">
-                                        {new Date(
-                                            attendance.checkInTime,
-                                        ).toLocaleTimeString()}
-                                    </div>
-                                </td>
-                                <td
-                                    class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-300"
-                                >
-                                    {attendance.schedule.subject}
-                                </td>
-                                <td
-                                    class="px-4 py-3 text-sm text-gray-500 dark:text-gray-300"
-                                >
-                                    {attendance.schedule.class}
-                                </td>
-                                <td class="px-4 py-3 whitespace-nowrap">
-                                    <span
-                                        class="px-2 py-1 text-xs font-medium rounded-full {getStatusColor(
-                                            attendance.status,
-                                        )}"
-                                    >
-                                        {getStatusLabel(attendance.status)}
-                                    </span>
-                                </td>
-                                <td class="px-4 py-3 whitespace-nowrap">
-                                    {#if attendance.method === "QR"}
-                                        <i
-                                            class="fas fa-qrcode text-indigo-600"
-                                            title="QR Code"
-                                        ></i>
-                                    {:else}
-                                        <i
-                                            class="fas fa-user-edit text-gray-600"
-                                            title="Manual"
-                                        ></i>
-                                    {/if}
-                                    <span class="ml-2 text-xs text-gray-500">
-                                        {attendance.method}
-                                    </span>
-                                </td>
-                            </tr>
-                        {/each}
-                    </tbody>
-                </table>
-
-                <!-- Pagination -->
-                {#if totalPages > 1}
+        {:else}
+            <!-- Schedule Cards Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {#each schedules as schedule}
                     <div
-                        class="px-6 py-4 border-t border-gray-200 flex items-center justify-between"
+                        class="bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden border border-gray-200 dark:border-gray-700 cursor-pointer"
+                        on:click={() => openHistory(schedule)}
                     >
-                        <div class="text-sm text-gray-700">
-                            Menampilkan <span class="font-medium"
-                                >{(currentPage - 1) * limit + 1}</span
-                            >
-                            sampai
-                            <span class="font-medium"
-                                >{Math.min(
-                                    currentPage * limit,
-                                    attendances.length,
-                                )}</span
-                            >
-                            dari
-                            <span class="font-medium">{attendances.length}</span
-                            > rekaman
+                        <!-- Card Header with Color -->
+                        <div class="p-4 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                            <h3 class="font-bold text-lg">{schedule.subject}</h3>
+                            <p class="text-sm opacity-80">{schedule.class}</p>
                         </div>
 
-                        <div class="flex items-center gap-2">
-                            <button
-                                on:click={prevPage}
-                                disabled={currentPage === 1}
-                                class="px-3 py-1 border border-gray-300 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                            >
-                                <i class="fas fa-chevron-left"></i>
-                            </button>
+                        <!-- Card Body -->
+                        <div class="p-4 space-y-3">
+                            <!-- Schedule Type Badge -->
+                            <div class="flex items-center gap-2">
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium {schedule.specificDate ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200' : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200'}">
+                                    <i class="fas {schedule.specificDate ? 'fa-calendar-day' : 'fa-sync-alt'} mr-1"></i>
+                                    {getScheduleType(schedule)}
+                                </span>
+                            </div>
 
-                            {#each Array.from({ length: totalPages }, (_, i) => i + 1) as page}
-                                {#if page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)}
-                                    <button
-                                        on:click={() => goToPage(page)}
-                                        class="px-3 py-1 border rounded-lg text-sm {page ===
-                                        currentPage
-                                            ? 'bg-primary-600 text-white border-primary-600'
-                                            : 'border-gray-300 hover:bg-gray-50'}"
-                                    >
-                                        {page}
-                                    </button>
-                                {:else if page === currentPage - 2 || page === currentPage + 2}
-                                    <span class="px-2 text-gray-500">...</span>
-                                {/if}
-                            {/each}
+                            <!-- Schedule Info -->
+                            <div class="space-y-2">
+                                <div class="flex items-center text-gray-600 dark:text-gray-400">
+                                    <i class="fas fa-clock w-5"></i>
+                                    <span class="text-sm">{schedule.startTime} - {schedule.endTime}</span>
+                                </div>
+                                <div class="flex items-center text-gray-600 dark:text-gray-400">
+                                    <i class="fas {schedule.specificDate ? 'fa-calendar-day' : 'fa-calendar-week'} w-5"></i>
+                                    <span class="text-sm">{getScheduleLabel(schedule)}</span>
+                                </div>
+                                <div class="flex items-center text-gray-600 dark:text-gray-400">
+                                    <i class="fas fa-chalkboard-teacher w-5"></i>
+                                    <span class="text-sm">{schedule.teacherName}</span>
+                                </div>
+                            </div>
 
-                            <button
-                                on:click={nextPage}
-                                disabled={currentPage === totalPages}
-                                class="px-3 py-1 border border-gray-300 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                            >
-                                <i class="fas fa-chevron-right"></i>
-                            </button>
+                            <!-- View History Button -->
+                            <div class="pt-3 border-t border-gray-200 dark:border-gray-700">
+                                <button
+                                    on:click={() => openHistory(schedule)}
+                                    class="w-full px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition-colors duration-200"
+                                >
+                                    <i class="fas fa-history mr-2"></i>
+                                    Lihat Riwayat Absensi
+                                </button>
+                            </div>
                         </div>
                     </div>
+                {/each}
+            </div>
+        {/if}
+    </div>
+
+    <!-- History Modal -->
+    {#if showHistoryModal && selectedSchedule}
+        <div 
+            class="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            on:click={(e) => e.target === e.currentTarget && (showHistoryModal = false)}
+            on:keydown={(e) => e.key === 'Escape' && (showHistoryModal = false)}
+            role="dialog"
+            aria-modal="true"
+            tabindex="-1"
+        >
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto border border-gray-200 dark:border-gray-700">
+                <!-- Header -->
+                <div class="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between z-10">
+                    <h2 class="text-xl font-semibold text-gray-900 dark:text-white">
+                        Riwayat Absensi - {selectedSchedule.subject}
+                    </h2>
+                    <button
+                        on:click={() => showHistoryModal = false}
+                        class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                    >
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+
+                <!-- Content -->
+                <div class="p-6 space-y-4">
+                <!-- Schedule Info -->
+                <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="font-semibold text-gray-900 dark:text-white">{selectedSchedule.subject}</h3>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">{selectedSchedule.class}</p>
+                        </div>
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium {selectedSchedule.specificDate ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200' : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200'}">
+                            <i class="fas {selectedSchedule.specificDate ? 'fa-calendar-day' : 'fa-sync-alt'} mr-1"></i>
+                            {getScheduleType(selectedSchedule)}
+                        </span>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-gray-600 dark:text-gray-400">
+                        <div class="flex items-center">
+                            <i class="fas fa-clock w-5 mr-2"></i>
+                            <span>{selectedSchedule.startTime} - {selectedSchedule.endTime}</span>
+                        </div>
+                        <div class="flex items-center">
+                            <i class="fas {selectedSchedule.specificDate ? 'fa-calendar-day' : 'fa-calendar-week'} w-5 mr-2"></i>
+                            <span>{getScheduleLabel(selectedSchedule)}</span>
+                        </div>
+                        <div class="flex items-center">
+                            <i class="fas fa-chalkboard-teacher w-5 mr-2"></i>
+                            <span>{selectedSchedule.teacherName}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Attendance History Table -->
+                {#if loadingHistory}
+                    <div class="flex items-center justify-center py-12">
+                        <i class="fas fa-spinner fa-spin text-3xl text-primary-500"></i>
+                    </div>
+                {:else if scheduleAttendances.length === 0}
+                    <div class="text-center py-12">
+                        <i class="fas fa-clipboard-list text-5xl text-gray-300 dark:text-gray-600 mb-3"></i>
+                        <p class="text-gray-500 dark:text-gray-400">Belum ada riwayat absensi</p>
+                    </div>
+                {:else}
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gray-50 dark:bg-gray-900">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                        Tanggal & Waktu
+                                    </th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                        Status
+                                    </th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                        Metode
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                                {#each scheduleAttendances as attendance}
+                                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                        <td class="px-4 py-3 whitespace-nowrap">
+                                            <div class="text-sm text-gray-900 dark:text-white">
+                                                {new Date(attendance.checkInTime).toLocaleDateString('id-ID', { 
+                                                    weekday: 'long',
+                                                    year: 'numeric',
+                                                    month: 'long',
+                                                    day: 'numeric'
+                                                })}
+                                            </div>
+                                            <div class="text-xs text-gray-500 dark:text-gray-400">
+                                                {new Date(attendance.checkInTime).toLocaleTimeString('id-ID', {
+                                                    hour: '2-digit',
+                                                    minute: '2-digit'
+                                                })}
+                                            </div>
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap">
+                                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full {getStatusColor(attendance.status)}">
+                                                {getStatusLabel(attendance.status)}
+                                            </span>
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap">
+                                            <span class="text-sm text-gray-900 dark:text-white">
+                                                {#if attendance.method === 'QR'}
+                                                    <i class="fas fa-qrcode mr-1"></i>
+                                                {:else}
+                                                    <i class="fas fa-hand-pointer mr-1"></i>
+                                                {/if}
+                                                {attendance.method}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                {/each}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    {#if totalPages > 1}
+                        <div class="flex items-center justify-between border-t border-gray-200 dark:border-gray-700 pt-4">
+                            <div class="flex-1 flex justify-between sm:hidden">
+                                <button
+                                    on:click={prevPage}
+                                    disabled={currentPage === 1}
+                                    class="relative inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    Sebelumnya
+                                </button>
+                                <button
+                                    on:click={nextPage}
+                                    disabled={currentPage === totalPages}
+                                    class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    Selanjutnya
+                                </button>
+                            </div>
+                            <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                                <div>
+                                    <p class="text-sm text-gray-700 dark:text-gray-300">
+                                        Halaman <span class="font-medium">{currentPage}</span> dari
+                                        <span class="font-medium">{totalPages}</span>
+                                    </p>
+                                </div>
+                                <div>
+                                    <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                                        <button
+                                            on:click={prevPage}
+                                            disabled={currentPage === 1}
+                                            class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            <i class="fas fa-chevron-left"></i>
+                                        </button>
+                                        {#each Array(totalPages) as _, i}
+                                            {#if i + 1 === 1 || i + 1 === totalPages || (i + 1 >= currentPage - 1 && i + 1 <= currentPage + 1)}
+                                                <button
+                                                    on:click={() => goToPage(i + 1)}
+                                                    class="relative inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium {currentPage === i + 1 ? 'z-10 bg-primary-50 dark:bg-primary-900 border-primary-500 text-primary-600 dark:text-primary-300' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'}"
+                                                >
+                                                    {i + 1}
+                                                </button>
+                                            {:else if i + 1 === currentPage - 2 || i + 1 === currentPage + 2}
+                                                <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                                    ...
+                                                </span>
+                                            {/if}
+                                        {/each}
+                                        <button
+                                            on:click={nextPage}
+                                            disabled={currentPage === totalPages}
+                                            class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            <i class="fas fa-chevron-right"></i>
+                                        </button>
+                                    </nav>
+                                </div>
+                            </div>
+                        </div>
+                    {/if}
                 {/if}
-            {/if}
+            </div>
         </div>
     </div>
+    {/if}
 </Layout>

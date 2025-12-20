@@ -15,7 +15,7 @@
 
     const studentMenu = [
         { icon: "fa-qrcode", label: "Pindai QR", path: "/" },
-        { icon: "fa-history", label: "Kehadiran Saya", path: "/attendance" },
+        { icon: "fa-calendar-alt", label: "Jadwal", path: "/attendance" },
         { icon: "fa-wallet", label: "Pembayaran", path: "/payment" },
     ];
 

@@ -749,6 +749,42 @@ app.delete('/api/students/:id', authenticate, adminOnly, async (req, res) => {
   }
 });
 
+// Get schedules for a student
+app.get('/api/students/:id/schedules', authenticate, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const student = await prisma.student.findUnique({ where: { id } });
+
+    if (!student) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+
+    // Get all schedules where the student is enrolled through ScheduleStudent table
+    const scheduleStudents = await prisma.scheduleStudent.findMany({
+      where: {
+        studentId: id
+      },
+      include: {
+        schedule: true
+      },
+      orderBy: {
+        schedule: {
+          startTime: 'asc'
+        }
+      }
+    });
+
+    // Extract schedules from the junction table
+    const schedules = scheduleStudents.map(ss => ss.schedule);
+
+    res.json(schedules);
+  } catch (error) {
+    console.error('Error fetching student schedules:', error);
+    res.status(500).json({ error: 'Failed to fetch schedules' });
+  }
+});
+
 // ==================== ATTENDANCE ====================
 
 // Get attendance records
