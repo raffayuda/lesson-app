@@ -651,36 +651,39 @@
                 </div>
             {:else}
                 <!-- Calendar Header -->
-                <div class="bg-white dark:bg-gray-800 rounded-t-xl shadow-lg p-4 border border-b-0 border-gray-200 dark:border-gray-700">
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-3">
-                        <button
-                            on:click={prevWeek}
-                            class="px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-all"
-                        >
-                            <i class="fas fa-chevron-left"></i>
-                        </button>
-                        <button
-                            on:click={goToToday}
-                            class="px-4 py-2 bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 hover:bg-primary-200 dark:hover:bg-primary-900/50 rounded-lg font-medium transition-all"
-                        >
-                            Hari Ini
-                        </button>
-                        <button
-                            on:click={nextWeek}
-                            class="px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-all"
-                        >
-                            <i class="fas fa-chevron-right"></i>
-                        </button>
+                <div class="bg-white dark:bg-gray-800 rounded-t-xl shadow-lg p-3 sm:p-4 border border-b-0 border-gray-200 dark:border-gray-700">
+                    <div class="flex items-center justify-between gap-2 sm:gap-4">
+                        <!-- Navigation Buttons -->
+                        <div class="flex items-center gap-1 sm:gap-2">
+                            <button
+                                on:click={prevWeek}
+                                class="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-all text-sm sm:text-base"
+                                aria-label="Previous week"
+                            >
+                                <i class="fas fa-chevron-left"></i>
+                            </button>
+                            <button
+                                on:click={goToToday}
+                                class="px-2 sm:px-4 py-2 bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 hover:bg-primary-200 dark:hover:bg-primary-900/50 rounded-lg font-medium transition-all text-xs sm:text-sm whitespace-nowrap"
+                            >
+                                Hari Ini
+                            </button>
+                            <button
+                                on:click={nextWeek}
+                                class="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-all text-sm sm:text-base"
+                                aria-label="Next week"
+                            >
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
+                        </div>
+                        
+                        <!-- Week Label -->
+                        <h3 class="text-sm sm:text-base lg:text-lg font-bold text-gray-900 dark:text-white text-center flex-1 min-w-0">
+                            <span class="hidden sm:inline">{weekLabel}</span>
+                            <span class="sm:hidden">{weekLabel.split(' - ')[0].split(', ')[1]}</span>
+                        </h3>
                     </div>
-                    
-                    <h3 class="text-lg font-bold text-gray-900 dark:text-white">
-                        {weekLabel}
-                    </h3>
-                    
-                    <div class="w-32"></div>
                 </div>
-            </div>
 
             <!-- Calendar Grid -->
             <div class="bg-white dark:bg-gray-800 rounded-b-xl shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700">
@@ -1318,25 +1321,25 @@
                         <table class="min-w-full">
                             <thead class="bg-gray-50 dark:bg-gray-700 sticky top-0">
                                 <tr>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Student</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Class</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Status</th>
+                                    <th class="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Student</th>
+                                    <th class="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase hidden sm:table-cell">Class</th>
+                                    <th class="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Status</th>
                                 </tr>
                             </thead>
                             <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                             {#each enrolledStudents as student}
                                 <tr>
-                                    <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">{student.user.name}</td>
-                                    <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-300">{student.class}</td>
-                                    <td class="px-4 py-3">
-                                        <div class="flex gap-2">
+                                    <td class="px-2 sm:px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">{student.user.name}</td>
+                                    <td class="px-2 sm:px-4 py-3 text-sm text-gray-500 dark:text-gray-300 hidden sm:table-cell">{student.class}</td>
+                                    <td class="px-2 sm:px-4 py-3">
+                                        <div class="flex gap-1 sm:gap-2">
                                             <button
                                                 type="button"
                                                 on:click={() => {
                                                     attendanceStatuses[student.id] = 'PRESENT';
                                                     attendanceStatuses = {...attendanceStatuses};
                                                 }}
-                                                class="w-10 h-10 rounded-full border-2 flex items-center justify-center font-semibold transition-all {attendanceStatuses[student.id] === 'PRESENT' ? 'bg-green-500 border-green-600 text-white' : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-green-500'}"
+                                                class="w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 flex items-center justify-center text-xs sm:text-sm font-semibold transition-all {attendanceStatuses[student.id] === 'PRESENT' ? 'bg-green-500 border-green-600 text-white' : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-green-500'}"
                                                 title="Hadir"
                                             >
                                                 H
@@ -1347,7 +1350,7 @@
                                                     attendanceStatuses[student.id] = 'SICK';
                                                     attendanceStatuses = {...attendanceStatuses};
                                                 }}
-                                                class="w-10 h-10 rounded-full border-2 flex items-center justify-center font-semibold transition-all {attendanceStatuses[student.id] === 'SICK' ? 'bg-yellow-500 border-yellow-600 text-white' : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-yellow-500'}"
+                                                class="w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 flex items-center justify-center text-xs sm:text-sm font-semibold transition-all {attendanceStatuses[student.id] === 'SICK' ? 'bg-yellow-500 border-yellow-600 text-white' : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-yellow-500'}"
                                                 title="Sakit"
                                             >
                                                 S
@@ -1358,7 +1361,7 @@
                                                     attendanceStatuses[student.id] = 'PERMISSION';
                                                     attendanceStatuses = {...attendanceStatuses};
                                                 }}
-                                                class="w-10 h-10 rounded-full border-2 flex items-center justify-center font-semibold transition-all {attendanceStatuses[student.id] === 'PERMISSION' ? 'bg-blue-500 border-blue-600 text-white' : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-blue-500'}"
+                                                class="w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 flex items-center justify-center text-xs sm:text-sm font-semibold transition-all {attendanceStatuses[student.id] === 'PERMISSION' ? 'bg-blue-500 border-blue-600 text-white' : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-blue-500'}"
                                                 title="Izin"
                                             >
                                                 I
@@ -1369,7 +1372,7 @@
                                                     attendanceStatuses[student.id] = 'ABSENT';
                                                     attendanceStatuses = {...attendanceStatuses};
                                                 }}
-                                                class="w-10 h-10 rounded-full border-2 flex items-center justify-center font-semibold transition-all {attendanceStatuses[student.id] === 'ABSENT' ? 'bg-red-500 border-red-600 text-white' : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-red-500'}"
+                                                class="w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 flex items-center justify-center text-xs sm:text-sm font-semibold transition-all {attendanceStatuses[student.id] === 'ABSENT' ? 'bg-red-500 border-red-600 text-white' : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-red-500'}"
                                                 title="Alfa"
                                             >
                                                 A
@@ -1384,10 +1387,10 @@
                 {/if}
             </div>
 
-            <div class="p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex justify-between items-center">
+            <div class="p-4 sm:p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
                 <button
                     on:click={() => (showAttendanceModal = false)}
-                    class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg transition-colors flex items-center gap-2"
+                    class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg transition-colors flex items-center justify-center gap-2"
                     disabled={savingAttendance}
                 >
                     <i class="fas fa-times"></i>
@@ -1395,7 +1398,7 @@
                 </button>
                 <button
                     on:click={saveAttendance}
-                    class="px-6 py-2 bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-md hover:shadow-lg flex items-center gap-2"
+                    class="px-6 py-2 bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-md hover:shadow-lg flex items-center justify-center gap-2"
                     disabled={savingAttendance || Object.keys(attendanceStatuses).length === 0}
                 >
                     {#if savingAttendance}

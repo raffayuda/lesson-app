@@ -5,6 +5,9 @@
 
     let showDropdown = false;
     let showLogoutModal = false;
+    let sidebar;
+
+    export { sidebar };
 
     function confirmLogout() {
         showLogoutModal = true;
@@ -21,15 +24,30 @@
     function toggleDropdown() {
         showDropdown = !showDropdown;
     }
+
+    function toggleSidebar() {
+        if (sidebar && sidebar.toggleMenu) {
+            sidebar.toggleMenu();
+        }
+    }
 </script>
 
 <nav
     class="h-16 bg-white/80 dark:bg-gray-800/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 fixed top-0 right-0 left-0 lg:left-64 z-20 shadow-sm"
 >
     <div class="h-full px-4 lg:px-6 flex items-center justify-between">
-        <div class="flex-1 ml-12 lg:ml-0">
+        <!-- Mobile Menu Button & Title -->
+        <div class="flex items-center gap-3 flex-1 min-w-0">
+            <button
+                on:click={toggleSidebar}
+                class="lg:hidden flex items-center justify-center w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-gray-600 dark:text-gray-300"
+                aria-label="Toggle menu"
+            >
+                <i class="fas fa-bars text-lg"></i>
+            </button>
+            
             <h2
-                class="text-lg lg:text-xl font-bold text-gray-900 dark:text-white truncate"
+                class="text-base sm:text-lg lg:text-xl font-bold text-gray-900 dark:text-white truncate"
             >
                 <slot name="title">Dasbor</slot>
             </h2>

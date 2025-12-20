@@ -30,15 +30,12 @@
     function closeMobileMenu() {
         isMobileMenuOpen = false;
     }
-</script>
 
-<!-- Mobile Menu Button (visible on small screens) -->
-<button
-    on:click={toggleMobileMenu}
-    class="lg:hidden fixed top-4 left-4 z-50 p-2.5 bg-gradient-to-r from-primary-600 to-primary-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
->
-    <i class="fas {isMobileMenuOpen ? 'fa-times' : 'fa-bars'} text-xl"></i>
-</button>
+    // Export function to be called from Navbar
+    export function toggleMenu() {
+        isMobileMenuOpen = !isMobileMenuOpen;
+    }
+</script>
 
 <!-- Overlay for mobile -->
 {#if isMobileMenuOpen}
@@ -59,7 +56,7 @@
 >
     <!-- Logo -->
     <div
-        class="h-16 flex items-center justify-center border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-primary-600 to-primary-700 dark:from-primary-700 dark:to-primary-800"
+        class="h-16 flex items-center justify-between px-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-primary-600 to-primary-700 dark:from-primary-700 dark:to-primary-800"
     >
         <div class="flex items-center gap-3">
             <div
@@ -69,6 +66,15 @@
             </div>
             <span class="text-xl font-bold text-white">Pay & Attend</span>
         </div>
+        
+        <!-- Close button for mobile -->
+        <button
+            on:click={closeMobileMenu}
+            class="lg:hidden w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors text-white"
+            aria-label="Close menu"
+        >
+            <i class="fas fa-times text-lg"></i>
+        </button>
     </div>
 
     <!-- Navigation -->
