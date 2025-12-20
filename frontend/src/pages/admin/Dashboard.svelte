@@ -10,6 +10,7 @@
     let schedules = [];
     let enrolledStudents = [];
     let attendanceStatuses = {};
+    let currentAttendanceDate = null;
     let loading = true;
     let showManualModal = false;
     let showQRModal = false;
@@ -63,6 +64,7 @@
 
         try {
             const today = new Date().toISOString().split("T")[0];
+            currentAttendanceDate = today; // Store the date for saving
             
             // Fetch students and attendance in parallel for better performance
             const [studentsResponse, attendanceResponse] = await Promise.all([
@@ -108,6 +110,7 @@
                             scheduleId: selectedSchedule.id,
                             studentId,
                             status,
+                            date: currentAttendanceDate,
                         }),
                     });
                 },

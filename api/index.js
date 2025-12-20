@@ -859,7 +859,9 @@ app.post('/api/attendance/manual', authenticate, adminOnly, async (req, res) => 
     // Use provided date or default to today
     let targetDate;
     if (date) {
-      targetDate = new Date(date);
+      // Parse date string as local date to avoid timezone issues
+      const [year, month, day] = date.split('-').map(Number);
+      targetDate = new Date(year, month - 1, day);
     } else {
       targetDate = new Date();
     }
@@ -987,9 +989,31 @@ app.post('/api/attendance/qr', authenticate, async (req, res) => {
     let targetDate;
     if (schedule.specificDate) {
       // For one-time schedules, use the specific date
-      targetDate = new Date(schedule.specificDate);
+      // Parse as local date to avoid timezone issues
+      const specificDate = new Date(schedule.specificDate);
+      targetDate = new Date(specificDate.getFullYear(), specificDate.getMonth(), specificDate.getDate());
+      
+      // Check if today matches the specific date
+      const today = new Date();
+      const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      if (todayDate.getTime() !== targetDate.getTime()) {
+        return res.status(400).json({ 
+          error: 'QR code can only be scanned on the scheduled date: ' + 
+                 targetDate.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+        });
+      }
     } else {
-      // For recurring schedules, use today's date
+      // For recurring schedules, validate that today matches the schedule day
+      const today = new Date();
+      const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+      const todayDayName = dayNames[today.getDay()];
+      
+      if (schedule.day !== todayDayName) {
+        return res.status(400).json({ 
+          error: `QR code untuk jadwal ${schedule.day} hanya bisa di-scan pada hari ${schedule.day}. Hari ini adalah ${todayDayName}.`
+        });
+      }
+      
       targetDate = new Date();
     }
     

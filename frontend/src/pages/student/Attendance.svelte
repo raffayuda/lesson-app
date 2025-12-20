@@ -300,7 +300,12 @@
                                     <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
                                         <td class="px-4 py-3 whitespace-nowrap">
                                             <div class="text-sm text-gray-900 dark:text-white">
-                                                {new Date(attendance.checkInTime).toLocaleDateString('id-ID', { 
+                                                {attendance.scheduleDate ? new Date(attendance.scheduleDate).toLocaleDateString('id-ID', { 
+                                                    weekday: 'long',
+                                                    year: 'numeric',
+                                                    month: 'long',
+                                                    day: 'numeric'
+                                                }) : new Date(attendance.checkInTime).toLocaleDateString('id-ID', { 
                                                     weekday: 'long',
                                                     year: 'numeric',
                                                     month: 'long',
@@ -308,7 +313,7 @@
                                                 })}
                                             </div>
                                             <div class="text-xs text-gray-500 dark:text-gray-400">
-                                                {new Date(attendance.checkInTime).toLocaleTimeString('id-ID', {
+                                                Dicatat: {new Date(attendance.checkInTime).toLocaleTimeString('id-ID', {
                                                     hour: '2-digit',
                                                     minute: '2-digit'
                                                 })}

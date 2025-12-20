@@ -1036,11 +1036,11 @@
                 <div class="grid grid-cols-3 gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
                     <button
                         on:click={() => {
-                            // For recurring schedules, always use today's date
-                            // For one-time schedules, use the specific date or viewDate
-                            const dateToUse = selectedScheduleDetail.specificDate 
-                                ? selectedScheduleDetail.viewDate 
-                                : null;
+                            // Use viewDate if available (from calendar context)
+                            // Otherwise use specificDate for one-time schedules
+                            // For recurring schedules without viewDate, will default to today
+                            const dateToUse = selectedScheduleDetail.viewDate || 
+                                            (selectedScheduleDetail.specificDate ? selectedScheduleDetail.viewDate : null);
                             openAttendanceModal(selectedScheduleDetail, dateToUse);
                         }}
                         class="flex flex-col items-center gap-2 p-4 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-xl transition-all border-2 border-blue-200 dark:border-blue-700"
