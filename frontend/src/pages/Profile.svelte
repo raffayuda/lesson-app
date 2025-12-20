@@ -69,7 +69,7 @@
         <div class="bg-white rounded-lg shadow p-6 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
             <h2 class="text-xl font-semibold dark:text-gray-100 mb-6">
                 <i class="fas fa-user-circle mr-2"></i>
-                Edit Profile
+                Update Profile
             </h2>
 
             {#if message}
@@ -96,13 +96,13 @@
             >
                 <div class="space-y-4">
                     <h3 class="text-sm font-semibold dark:text-gray-300 uppercase">
-                        Basic Information
+                        Informasi Dasar
                     </h3>
 
                     <div>
                         <label
                             class="block text-sm font-medium dark:text-gray-300 mb-2"
-                            >Name</label
+                            >Nama</label
                         >
                         <input
                             bind:value={form.name}
@@ -129,7 +129,7 @@
                     <div>
                         <label
                             class="block text-sm font-medium dark:text-gray-300 mb-2"
-                            >Role</label
+                            >Peran</label
                         >
                         <input
                             value={$auth.user?.role}
@@ -141,13 +141,13 @@
 
                 <div class="border-t border-gray-200 pt-6 space-y-4">
                     <h3 class="text-sm font-semibold dark:text-gray-300 uppercase">
-                        Change Password (Optional)
+                        Ubah Kata Sandi (Opsional)
                     </h3>
 
                     <div>
                         <label
                             class="block text-sm font-medium dark:text-gray-300 mb-2"
-                            >Current Password</label
+                            >Kata Sandi Saat Ini</label
                         >
                         <input
                             type="password"
@@ -161,7 +161,7 @@
                     <div>
                         <label
                             class="block text-sm font-medium dark:text-gray-300 mb-2"
-                            >New Password</label
+                            >Kata Sandi Baru</label
                         >
                         <input
                             type="password"
@@ -175,7 +175,7 @@
                     <div>
                         <label
                             class="block text-sm font-medium dark:text-gray-300 mb-2"
-                            >Confirm New Password</label
+                            >Konfirmasi Kata Sandi Baru</label
                         >
                         <input
                             type="password"
@@ -192,7 +192,7 @@
                         href="#/"
                         class="px-6 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-300"
                     >
-                        Cancel
+                        Batal
                     </a>
                     <button
                         type="submit"

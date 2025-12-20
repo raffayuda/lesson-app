@@ -35,8 +35,8 @@
             >
                 <i class="fas fa-graduation-cap text-3xl text-white"></i>
             </div>
-            <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">Attendance System</h1>
-            <p class="text-gray-600 dark:text-gray-300 mt-2">Sign in to your account</p>
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">Sistem Presensi</h1>
+            <p class="text-gray-600 dark:text-gray-300 mt-2">Masuk ke akun Anda</p>
         </div>
 
         <!-- Login Card -->
@@ -57,7 +57,7 @@
                         for="email"
                         class="block text-sm font-medium dark:text-gray-300 mb-2"
                     >
-                        <i class="fas fa-envelope mr-2"></i>Email Address
+                        <i class="fas fa-envelope mr-2"></i>Email
                     </label>
                     <input
                         type="email"
@@ -88,21 +88,6 @@
                     />
                 </div>
 
-                <div class="flex items-center justify-between text-sm">
-                    <label class="flex items-center gap-2 cursor-pointer">
-                        <input
-                            type="checkbox"
-                            class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                        />
-                        <span class="text-gray-600 dark:text-gray-300">Remember me</span>
-                    </label>
-                    <a
-                        href="#/forgot-password"
-                        class="text-primary-600 dark:text-primary-500 hover:text-primary-700 font-medium"
-                    >
-                        Forgot password?
-                    </a>
-                </div>
 
                 <button
                     type="submit"

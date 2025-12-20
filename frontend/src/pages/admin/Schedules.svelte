@@ -454,43 +454,36 @@
         }
         
         currentAttendanceDate = dateToUse;
-        console.log('Opening attendance for date:', dateToUse, 'schedule:', schedule.subject);
+        
+        // Show modal immediately
+        showAttendanceModal = true;
+        enrolledStudents = []; // Show empty state while loading
 
         try {
-            const response = await fetch(
-                `${API_URL}/schedules/${schedule.id}/students`,
-                {
+            // Fetch students and attendance in parallel for better performance
+            const [studentsResponse, attendanceResponse] = await Promise.all([
+                fetch(`${API_URL}/schedules/${schedule.id}/students`, {
                     headers: { Authorization: `Bearer ${auth.getToken()}` },
-                },
-            );
+                }),
+                fetch(`${API_URL}/attendance?scheduleId=${schedule.id}&date=${dateToUse}`, {
+                    headers: { Authorization: `Bearer ${auth.getToken()}` },
+                })
+            ]);
 
-            if (response.ok) {
-                enrolledStudents = await response.json();
-                console.log('Enrolled students:', enrolledStudents);
-
-                const attResponse = await fetch(
-                    `${API_URL}/attendance?scheduleId=${schedule.id}&date=${dateToUse}`,
-                    {
-                        headers: { Authorization: `Bearer ${auth.getToken()}` },
-                    },
-                );
-
-                if (attResponse.ok) {
-                    const existingAtt = await attResponse.json();
-                    console.log('Fetched attendance:', existingAtt);
-                    console.log('Mapping attendance to students...');
-                    existingAtt.forEach((att) => {
-                        console.log(`  Student ID: ${att.studentId}, Status: ${att.status}`);
-                        attendanceStatuses[att.studentId] = att.status;
-                    });
-                    console.log('Final attendanceStatuses:', attendanceStatuses);
-                    attendanceStatuses = {...attendanceStatuses};
-                }
-
-                showAttendanceModal = true;
+            if (studentsResponse.ok) {
+                enrolledStudents = await studentsResponse.json();
+            }
+            
+            if (attendanceResponse.ok) {
+                const existingAtt = await attendanceResponse.json();
+                existingAtt.forEach((att) => {
+                    attendanceStatuses[att.studentId] = att.status;
+                });
+                attendanceStatuses = {...attendanceStatuses};
             }
         } catch (error) {
             toastStore.error("Error loading students: " + error.message);
+            showAttendanceModal = false;
         }
     }
 
@@ -498,6 +491,7 @@
         savingAttendance = true;
 
         try {
+            // Send all attendance updates in parallel
             const promises = Object.entries(attendanceStatuses).map(
                 ([studentId, status]) => {
                     return fetch(`${API_URL}/attendance/manual`, {
@@ -510,20 +504,20 @@
                             scheduleId: selectedScheduleAttendance.id,
                             studentId,
                             status,
-                            date: currentAttendanceDate, // Send the date we're viewing
+                            date: currentAttendanceDate,
                         }),
                     });
                 },
             );
 
             await Promise.all(promises);
-            toastStore.success("Attendance saved successfully!");
-            
-            // Reload attendance data for this date before closing
-            await openAttendanceModal(selectedScheduleAttendance, currentAttendanceDate);
             
             showAttendanceModal = false;
             attendanceStatuses = {};
+            toastStore.success("Absensi berhasil disimpan!");
+            
+            // Refresh schedules to show updated data
+            fetchSchedules();
         } catch (error) {
             toastStore.error("Error saving attendance: " + error.message);
         } finally {
@@ -561,7 +555,7 @@
     }
 </script>
 
-<Layout activePage="/schedules" title="Schedules Management">
+<Layout activePage="/schedules" title="Manajemen Jadwal">
     <div class="space-y-6">
         <!-- Header -->
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -1000,7 +994,7 @@
                         <div class="flex flex-wrap gap-2 text-sm">
                             <span class="px-3 py-1 bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded-full font-medium">
                                 <i class="fas fa-users mr-1"></i>
-                                Class {selectedScheduleDetail.class}
+                                Kelas {selectedScheduleDetail.class}
                             </span>
                             <span class="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full font-medium">
                                 <i class="fas fa-calendar mr-1"></i>
@@ -1024,14 +1018,14 @@
             <div class="p-6 space-y-4">
                 <div class="grid grid-cols-2 gap-4">
                     <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
-                        <p class="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">Teacher</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">Guru</p>
                         <p class="text-lg font-semibold text-gray-900 dark:text-white">
                             <i class="fas fa-chalkboard-teacher mr-2 text-primary-600"></i>
                             {selectedScheduleDetail.teacherName}
                         </p>
                     </div>
                     <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
-                        <p class="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">Room</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">Ruangan</p>
                         <p class="text-lg font-semibold text-gray-900 dark:text-white">
                             <i class="fas fa-door-open mr-2 text-primary-600"></i>
                             {selectedScheduleDetail.room}

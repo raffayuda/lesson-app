@@ -169,15 +169,14 @@
             <h2
                 class="text-xl font-semibold text-gray-900 mb-4 dark:text-white"
             >
-                <i class="fas fa-qrcode mr-2"></i>Scan Schedule QR Code
+                <i class="fas fa-qrcode mr-2"></i>Pindai Kode QR Jadwal
             </h2>
 
             <div
                 class="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700"
             >
                 <i class="fas fa-info-circle mr-2"></i>
-                Scan the QR code displayed for your schedule to mark your attendance
-                automatically
+                Pindai kode QR yang ditampilkan untuk jadwal Anda untuk mencatat kehadiran secara otomatis
             </div>
 
             {#if error}
@@ -203,7 +202,7 @@
                 class="w-full py-3 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
             >
                 <i class="fas fa-camera"></i>
-                <span>Start Scanning</span>
+                <span>Mulai Pindai</span>
             </button>
         </div>
 
@@ -216,7 +215,7 @@
                     class="text-lg font-semibold text-gray-900 mb-4 dark:text-white"
                 >
                     <i class="fas fa-history mr-2"></i>
-                    Recent Attendance
+                    Riwayat Kehadiran Terbaru
                 </h3>
 
                 <div class="space-y-3">

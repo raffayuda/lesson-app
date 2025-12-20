@@ -458,7 +458,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@event-calendar/core@3/index.min.css">
 </svelte:head>
 
-<Layout activePage="/schedules" title="Schedules Management">
+<Layout activePage="/schedules" title="Manajemen Jadwal">
     <div class="space-y-6">
         <!-- Header -->
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">

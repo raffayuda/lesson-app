@@ -56,41 +56,38 @@
     async function openManualAttendance(schedule) {
         selectedSchedule = schedule;
         attendanceStatuses = {};
+        
+        // Show modal immediately
+        showManualModal = true;
+        enrolledStudents = []; // Show empty state while loading
 
         try {
-            const response = await fetch(
-                `${API_URL}/schedules/${schedule.id}/students`,
-                {
+            const today = new Date().toISOString().split("T")[0];
+            
+            // Fetch students and attendance in parallel for better performance
+            const [studentsResponse, attendanceResponse] = await Promise.all([
+                fetch(`${API_URL}/schedules/${schedule.id}/students`, {
                     headers: { Authorization: `Bearer ${auth.getToken()}` },
-                },
-            );
+                }),
+                fetch(`${API_URL}/attendance?scheduleId=${schedule.id}&date=${today}`, {
+                    headers: { Authorization: `Bearer ${auth.getToken()}` },
+                })
+            ]);
 
-            if (response.ok) {
-                enrolledStudents = await response.json();
-
-                // Fetch existing attendance for today
-                const today = new Date().toISOString().split("T")[0];
-                const attResponse = await fetch(
-                    `${API_URL}/attendance?scheduleId=${schedule.id}&date=${today}`,
-                    {
-                        headers: { Authorization: `Bearer ${auth.getToken()}` },
-                    },
-                );
-
-                if (attResponse.ok) {
-                    const existingAtt = await attResponse.json();
-                    // Pre-fill existing statuses
-                    existingAtt.forEach((att) => {
-                        attendanceStatuses[att.studentId] = att.status;
-                    });
-                    // Trigger reactivity
-                    attendanceStatuses = {...attendanceStatuses};
-                }
-
-                showManualModal = true;
+            if (studentsResponse.ok) {
+                enrolledStudents = await studentsResponse.json();
+            }
+            
+            if (attendanceResponse.ok) {
+                const existingAtt = await attendanceResponse.json();
+                existingAtt.forEach((att) => {
+                    attendanceStatuses[att.studentId] = att.status;
+                });
+                attendanceStatuses = {...attendanceStatuses};
             }
         } catch (error) {
             toastStore.error("Error loading students: " + error.message);
+            showManualModal = false;
         }
     }
 
@@ -98,6 +95,7 @@
         savingAttendance = true;
 
         try {
+            // Send all attendance updates in parallel
             const promises = Object.entries(attendanceStatuses).map(
                 ([studentId, status]) => {
                     return fetch(`${API_URL}/attendance/manual`, {
@@ -116,10 +114,13 @@
             );
 
             await Promise.all(promises);
-            toastStore.success("Attendance saved successfully!");
+            
             showManualModal = false;
             attendanceStatuses = {};
-            await fetchStats();
+            toastStore.success("Absensi berhasil disimpan!");
+            
+            // Refresh stats to show updated data
+            fetchStats();
         } catch (error) {
             toastStore.error("Error saving attendance: " + error.message);
         } finally {
