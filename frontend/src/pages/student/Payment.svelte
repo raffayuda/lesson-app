@@ -612,7 +612,7 @@
                                             <p
                                                 class="text-xs text-red-600 mt-1"
                                             >
-                                                Reason: {payment.rejectionReason}
+                                                alasan: {payment.rejectionReason}
                                             </p>
                                         {/if}
                                     </td>

@@ -151,8 +151,8 @@
 
     function confirmApprovePayment(payment) {
         confirmModalConfig = {
-            title: "Approve Payment",
-            message: `Are you sure you want to approve payment from ${payment.student.user.name}?`,
+            title: "Setujui Pembayaran",
+            message: `Apakah Anda yakin ingin menyetujui pembayaran dari ${payment.student.user.name}?`,
             onConfirm: () => approvePayment(payment),
             danger: false,
         };
@@ -231,8 +231,8 @@
 
     function confirmDeletePayment(payment) {
         confirmModalConfig = {
-            title: "Delete Payment",
-            message: `Delete payment from ${payment.student.user.name}? This action cannot be undone.`,
+            title: "Hapus Pembayaran",
+            message: `Apakah Anda yakin ingin menghapus pembayaran dari ${payment.student.user.name}? Tindakan ini tidak dapat dibatalkan.`,
             onConfirm: () => deletePayment(payment),
             danger: true,
         };
@@ -468,7 +468,7 @@
 
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1"
+                    <label class="block text-sm font-medium dark:text-gray-300 mb-1"
                         >Status</label
                     >
                     <select
@@ -483,7 +483,7 @@
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1"
+                    <label class="block text-sm font-medium dark:text-gray-300 mb-1"
                         >Siswa</label
                     >
                     <select
@@ -500,7 +500,7 @@
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1"
+                    <label class="block text-sm font-medium dark:text-gray-300 mb-1"
                         >Tanggal Mulai</label
                     >
                     <input
@@ -511,7 +511,7 @@
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1"
+                    <label class="block text-sm font-medium dark:text-gray-300 mb-1"
                         >Tanggal Akhir</label
                     >
                     <input
@@ -566,23 +566,23 @@
                                 >Tanggal</th
                             >
                             <th
-                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase"
+                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase"
                                 >Siswa</th
                             >
                             <th
-                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase"
+                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase"
                                 >Jumlah</th
                             >
                             <th
-                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase"
+                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase"
                                 >Deskripsi</th
                             >
                             <th
-                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase"
+                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase"
                                 >Status</th
                             >
                             <th
-                                class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase"
+                                class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase"
                                 >Aksi</th
                             >
                         </tr>
@@ -622,7 +622,13 @@
                                             payment.status,
                                         )}"
                                     >
-                                        {payment.status}
+                                    {#if payment.status === "PENDING"}
+                                        Menunggu
+                                    {:else if payment.status === "APPROVED"}
+                                        Disetujui
+                                    {:else if payment.status === "REJECTED"}
+                                        Ditolak
+                                    {/if}
                                     </span>
                                     {#if payment.approver}
                                         <p
@@ -630,6 +636,13 @@
                                         >
                                             oleh {payment.approver.name}
                                         </p>
+                                        {#if payment.status === "REJECTED" && payment.rejectionReason}
+                                            <p
+                                                class="text-xs text-red-600 dark:text-red-400 mt-1"
+                                            >
+                                                alasan: {payment.rejectionReason}
+                                            </p>
+                                        {/if}
                                     {/if}
                                 </td>
                                 <td
@@ -663,8 +676,8 @@
                                     <button
                                         on:click={() =>
                                             confirmDeletePayment(payment)}
-                                        class="text-gray-600 hover:text-gray-900"
-                                        title="Delete"
+                                        class="text-red-600 hover:text-red-900"
+                                        title="Hapus"
                                     >
                                         <i class="fas fa-trash"></i>
                                     </button>
@@ -753,7 +766,7 @@
         >
             <div class="flex items-center justify-between mb-4">
                 <h3 class="text-xl font-semibold text-gray-900 dark:text-white">
-                    Payment Proof
+                    Bukti Pembayaran
                 </h3>
                 <button
                     on:click={() => (showProofModal = false)}
@@ -766,26 +779,26 @@
             <div class="space-y-4">
                 <div class="grid grid-cols-2 gap-4 text-sm">
                     <div>
-                        <p class="text-gray-500 dark:text-gray-400">Student</p>
+                        <p class="text-gray-500 dark:text-gray-400">Siswa</p>
                         <p class="font-medium">
                             {selectedPayment.student.user.name}
                         </p>
                     </div>
                     <div>
-                        <p class="text-gray-500 dark:text-gray-400">Amount</p>
+                        <p class="text-gray-500 dark:text-gray-400">Jumlah</p>
                         <p class="font-medium">
                             {formatCurrency(selectedPayment.amount)}
                         </p>
                     </div>
                     <div>
                         <p class="text-gray-500 dark:text-gray-400">
-                            Payer Name
+                            Nama Pembayar
                         </p>
                         <p class="font-medium">{selectedPayment.payerName}</p>
                     </div>
                     <div>
                         <p class="text-gray-500 dark:text-gray-400">
-                            Payment Date
+                            Tanggal Pembayaran
                         </p>
                         <p class="font-medium">
                             {new Date(
@@ -796,15 +809,15 @@
                 </div>
 
                 <div>
-                    <p class="text-gray-500 text-sm mb-1">Description</p>
+                    <p class="text-gray-500 text-sm mb-1">Deskripsi</p>
                     <p class="text-sm">{selectedPayment.description}</p>
                 </div>
 
                 <div>
-                    <p class="text-gray-500 text-sm mb-2">Proof Image</p>
+                    <p class="text-gray-500 text-sm mb-2">Bukti Pembayaran</p>
                     <img
                         src={selectedPayment.proofImage}
-                        alt="Payment Proof"
+                        alt="Bukti Pembayaran"
                         class="w-full rounded-lg border border-gray-300 h-auto max-h-[300px] object-contain"
                     />
                 </div>
@@ -818,26 +831,26 @@
     <div
         class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
     >
-        <div class="bg-white rounded-lg max-w-md w-full p-6">
-            <h3 class="text-xl font-semibold text-gray-900 mb-4">
-                Reject Payment
+        <div class="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-6">
+            <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+                Tolak Pembayaran
             </h3>
 
-            <p class="text-sm text-gray-600 mb-4">
-                Rejecting payment from <strong
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                Menolak pembayaran dari <strong
                     >{selectedPayment.student.user.name}</strong
                 >
             </p>
 
             <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-1"
-                    >Rejection Reason</label
+                <label class="block text-sm font-medium dark:text-gray-300 mb-1"
+                    >Alasan Penolakan</label
                 >
                 <textarea
                     bind:value={rejectionReason}
                     rows="3"
                     required
-                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500"
+                    class="w-full px-3 py-2 border dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500"
                     placeholder="Please provide a reason for rejection..."
                 ></textarea>
             </div>
@@ -851,14 +864,14 @@
                     }}
                     class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg"
                 >
-                    Cancel
+                    Batal
                 </button>
                 <button
                     on:click={rejectPayment}
                     class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg"
                 >
                     <i class="fas fa-times mr-2"></i>
-                    Reject Payment
+                    Tolak Pembayaran
                 </button>
             </div>
         </div>

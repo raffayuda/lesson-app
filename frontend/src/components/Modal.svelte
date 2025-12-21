@@ -2,10 +2,10 @@
     import { createEventDispatcher } from 'svelte';
     
     export let show = false;
-    export let title = "Confirm";
-    export let message = "Are you sure?";
+    export let title = "Konfirmasi";
+    export let message = "Apakah Anda yakin?";
     export let confirmText = "OK";
-    export let cancelText = "Cancel";
+    export let cancelText = "Batal";
     export let type = "confirm"; // "confirm" or "alert"
     export let danger = false;
     

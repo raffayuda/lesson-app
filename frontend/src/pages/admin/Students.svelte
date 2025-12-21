@@ -176,9 +176,9 @@
     function confirmDeleteStudent(id) {
         studentToDelete = id;
         confirmModalConfig = {
-            title: "Delete Student",
+            title: "Hapus Siswa",
             message:
-                "Are you sure you want to delete this student? This action cannot be undone.",
+                "Apakah Anda yakin ingin menghapus siswa ini? Tindakan ini tidak dapat dibatalkan.",
             onConfirm: () => deleteStudent(id),
             danger: true,
         };
