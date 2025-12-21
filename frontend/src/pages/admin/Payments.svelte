@@ -746,7 +746,7 @@
         tabindex="0"
     >
         <div
-            class="bg-white rounded-lg max-w-3xl w-full p-6"
+            class="bg-white rounded-lg max-w-3xl w-full p-6 dark:bg-gray-800"
             on:click|stopPropagation
             role="dialog"
             tabindex="-1"
@@ -805,7 +805,7 @@
                     <img
                         src={selectedPayment.proofImage}
                         alt="Payment Proof"
-                        class="w-full rounded-lg border border-gray-300"
+                        class="w-full rounded-lg border border-gray-300 h-auto max-h-[300px] object-contain"
                     />
                 </div>
             </div>

@@ -807,10 +807,22 @@ app.get('/api/attendance', authenticate, async (req, res) => {
 
       console.log(`Filtering attendance for date ${date}: ${startDate} to ${endDate}`);
 
-      where.checkInTime = {
-        gte: startDate,
-        lte: endDate
-      };
+      // Use scheduleDate if available, fallback to checkInTime
+      where.OR = [
+        {
+          scheduleDate: {
+            gte: startDate,
+            lte: endDate
+          }
+        },
+        {
+          scheduleDate: null,
+          checkInTime: {
+            gte: startDate,
+            lte: endDate
+          }
+        }
+      ];
     }
 
     const attendances = await prisma.attendance.findMany({
@@ -884,15 +896,26 @@ app.post('/api/attendance/manual', authenticate, adminOnly, async (req, res) => 
     
     console.log('Saving attendance for schedule date:', scheduleDateTime.toISOString(), 'actual time:', actualCheckInTime.toISOString(), 'schedule:', schedule.subject);
 
-    // Check if already marked on this date using checkInTime
+    // Check if already marked on this date using scheduleDate or checkInTime
     const existing = await prisma.attendance.findFirst({
       where: { 
         scheduleId, 
         studentId,
-        checkInTime: {
-          gte: dayStart,
-          lt: dayEnd
-        }
+        OR: [
+          {
+            scheduleDate: {
+              gte: dayStart,
+              lt: dayEnd
+            }
+          },
+          {
+            scheduleDate: null,
+            checkInTime: {
+              gte: dayStart,
+              lt: dayEnd
+            }
+          }
+        ]
       }
     });
 
@@ -1022,7 +1045,7 @@ app.post('/api/attendance/qr', authenticate, async (req, res) => {
     const scheduleDateTime = new Date(targetDate);
     scheduleDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
 
-    // Check if already marked for this date
+    // Check if already marked for this date using scheduleDate or checkInTime
     const startOfDay = new Date(targetDate);
     startOfDay.setHours(0, 0, 0, 0);
     const endOfDay = new Date(targetDate);
@@ -1032,15 +1055,26 @@ app.post('/api/attendance/qr', authenticate, async (req, res) => {
       where: {
         scheduleId: schedule.id,
         studentId: student.id,
-        checkInTime: {
-          gte: startOfDay,
-          lt: endOfDay
-        }
+        OR: [
+          {
+            scheduleDate: {
+              gte: startOfDay,
+              lt: endOfDay
+            }
+          },
+          {
+            scheduleDate: null,
+            checkInTime: {
+              gte: startOfDay,
+              lt: endOfDay
+            }
+          }
+        ]
       }
     });
 
     if (existing) {
-      return res.status(400).json({ error: 'You have already marked attendance for this schedule today' });
+      return res.status(400).json({ error: 'Anda sudah melakukan absensi untuk jadwal ini hari ini' });
     }
 
     // Use actual current time for checkInTime

@@ -10,6 +10,8 @@
     let schedules = [];
     let enrolledStudents = [];
     let attendanceStatuses = {};
+    let originalAttendanceStatuses = {}; // Track original values from DB
+    let modifiedStudents = new Set(); // Track which students were actually modified
     let currentAttendanceDate = null;
     let loading = true;
     let showManualModal = false;
@@ -57,6 +59,8 @@
     async function openManualAttendance(schedule) {
         selectedSchedule = schedule;
         attendanceStatuses = {};
+        originalAttendanceStatuses = {}; // Reset original
+        modifiedStudents = new Set(); // Reset modified tracking
         
         // Show modal immediately
         showManualModal = true;
@@ -82,10 +86,19 @@
             
             if (attendanceResponse.ok) {
                 const existingAtt = await attendanceResponse.json();
+                console.log('Existing attendance loaded:', existingAtt);
+                
+                // Build new object to ensure reactivity
+                const newStatuses = {};
+                const newOriginal = {};
                 existingAtt.forEach((att) => {
-                    attendanceStatuses[att.studentId] = att.status;
+                    newStatuses[att.studentId] = att.status;
+                    newOriginal[att.studentId] = att.status;
                 });
-                attendanceStatuses = {...attendanceStatuses};
+                
+                attendanceStatuses = newStatuses;
+                originalAttendanceStatuses = newOriginal;
+                console.log('Attendance statuses set:', attendanceStatuses);
             }
         } catch (error) {
             toastStore.error("Error loading students: " + error.message);
@@ -97,9 +110,10 @@
         savingAttendance = true;
 
         try {
-            // Send all attendance updates in parallel
-            const promises = Object.entries(attendanceStatuses).map(
-                ([studentId, status]) => {
+            // Only send attendance updates for modified students
+            const promises = Array.from(modifiedStudents).map(
+                (studentId) => {
+                    const status = attendanceStatuses[studentId];
                     return fetch(`${API_URL}/attendance/manual`, {
                         method: "POST",
                         headers: {
@@ -120,6 +134,8 @@
             
             showManualModal = false;
             attendanceStatuses = {};
+            originalAttendanceStatuses = {};
+            modifiedStudents = new Set();
             toastStore.success("Absensi berhasil disimpan!");
             
             // Refresh stats to show updated data
@@ -338,6 +354,8 @@
                                             type="button"
                                             on:click={() => {
                                                 attendanceStatuses[student.id] = 'PRESENT';
+                                                modifiedStudents.add(student.id);
+                                                modifiedStudents = modifiedStudents; // Force reactivity
                                                 attendanceStatuses = {...attendanceStatuses};
                                             }}
                                             class="w-10 h-10 rounded-full border-2 flex items-center justify-center font-semibold transition-all {attendanceStatuses[student.id] === 'PRESENT' ? 'bg-green-500 border-green-600 text-white' : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-green-500'}"
@@ -349,6 +367,8 @@
                                             type="button"
                                             on:click={() => {
                                                 attendanceStatuses[student.id] = 'SICK';
+                                                modifiedStudents.add(student.id);
+                                                modifiedStudents = modifiedStudents; // Force reactivity
                                                 attendanceStatuses = {...attendanceStatuses};
                                             }}
                                             class="w-10 h-10 rounded-full border-2 flex items-center justify-center font-semibold transition-all {attendanceStatuses[student.id] === 'SICK' ? 'bg-yellow-500 border-yellow-600 text-white' : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-yellow-500'}"
@@ -360,6 +380,8 @@
                                             type="button"
                                             on:click={() => {
                                                 attendanceStatuses[student.id] = 'PERMISSION';
+                                                modifiedStudents.add(student.id);
+                                                modifiedStudents = modifiedStudents; // Force reactivity
                                                 attendanceStatuses = {...attendanceStatuses};
                                             }}
                                             class="w-10 h-10 rounded-full border-2 flex items-center justify-center font-semibold transition-all {attendanceStatuses[student.id] === 'PERMISSION' ? 'bg-blue-500 border-blue-600 text-white' : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-blue-500'}"
@@ -371,6 +393,8 @@
                                             type="button"
                                             on:click={() => {
                                                 attendanceStatuses[student.id] = 'ABSENT';
+                                                modifiedStudents.add(student.id);
+                                                modifiedStudents = modifiedStudents; // Force reactivity
                                                 attendanceStatuses = {...attendanceStatuses};
                                             }}
                                             class="w-10 h-10 rounded-full border-2 flex items-center justify-center font-semibold transition-all {attendanceStatuses[student.id] === 'ABSENT' ? 'bg-red-500 border-red-600 text-white' : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-red-500'}"
@@ -398,8 +422,7 @@
                 <button
                     on:click={saveAttendance}
                     class="px-6 py-2.5 bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white rounded-lg font-medium shadow-md hover:shadow-lg transition-all duration-300 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled={savingAttendance ||
-                        Object.keys(attendanceStatuses).length === 0}
+                    disabled={savingAttendance || modifiedStudents.size === 0}
                 >
                     {#if savingAttendance}
                         <i class="fas fa-spinner fa-spin"></i>
