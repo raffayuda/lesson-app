@@ -362,8 +362,8 @@
 
     function confirmDeleteSchedule(id) {
         confirmModalConfig = {
-            title: "Delete Schedule",
-            message: "Are you sure you want to delete this schedule? This action cannot be undone.",
+            title: "Hapus Jadwal",
+            message: "Apakah Anda yakin ingin menghapus jadwal ini? Tindakan ini tidak dapat dibatalkan.",
             onConfirm: () => deleteSchedule(id),
             danger: true
         };
@@ -1085,7 +1085,7 @@
                     class="w-full px-4 py-3 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 rounded-xl transition-all border-2 border-red-200 dark:border-red-700 flex items-center justify-center gap-2 font-medium"
                 >
                     <i class="fas fa-trash"></i>
-                    Delete Schedule
+                    Hapus Jadwal
                 </button>
             </div>
         </div>

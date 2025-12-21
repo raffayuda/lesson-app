@@ -118,8 +118,8 @@
 
             // Prepare data for Excel
             const data = filteredData.map((att) => ({
-                "Tanggal Jadwal": att.scheduleDate ? new Date(att.scheduleDate).toLocaleDateString() : new Date(att.checkInTime).toLocaleDateString(),
-                "Waktu Dicatat": new Date(att.checkInTime).toLocaleTimeString(),
+                "Tanggal Absen": new Date(att.checkInTime).toLocaleDateString(),
+                "Waktu Absen": new Date(att.checkInTime).toLocaleTimeString(),
                 "Siswa": att.student.user.name,
                 "Student ID": att.student.studentId,
                 "Mata Pelajaran": att.schedule.subject,
@@ -518,16 +518,14 @@
                                         class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"
                                     >
                                         <div class="dark:text-white">
-                                            {attendance.scheduleDate ? new Date(
-                                                attendance.scheduleDate,
-                                            ).toLocaleDateString() : new Date(
+                                            {new Date(
                                                 attendance.checkInTime,
                                             ).toLocaleDateString()}
                                         </div>
                                         <div
                                             class="text-xs text-gray-500 dark:text-gray-400"
                                         >
-                                            Dicatat: {new Date(
+                                            {new Date(
                                                 attendance.checkInTime,
                                             ).toLocaleTimeString()}
                                         </div>
