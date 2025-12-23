@@ -150,15 +150,15 @@
             XLSX.utils.book_append_sheet(wb, ws, "Attendance History");
 
             // Generate filename with current date
-            const filename = `attendance-history-${new Date().toISOString().split("T")[0]}.xlsx`;
+            const filename = `riwayat-absensi-${new Date().toISOString().split("T")[0]}.xlsx`;
 
             // Save file
             XLSX.writeFile(wb, filename);
 
-            console.log(`Exported ${data.length} attendance records to Excel`);
+            console.log(`Berhasil mengekspor ${data.length} data absensi ke Excel`);
         } catch (error) {
             console.error("Export error:", error);
-            alert("Failed to export data: " + error.message);
+            alert("Gagal mengekspor data: " + error.message);
         } finally {
             loading = false;
         }

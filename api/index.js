@@ -9,6 +9,7 @@ const { PrismaClient } = require('@prisma/client');
 const TelegramBot = require('node-telegram-bot-api');
 const compression = require('compression');
 const NodeCache = require('node-cache');
+const multer = require('multer');
 
 const app = express();
 const prisma = new PrismaClient({
@@ -18,6 +19,20 @@ const prisma = new PrismaClient({
     }
   },
   log: ['error', 'warn']
+});
+
+// Multer configuration for file uploads (in-memory storage)
+const storage = multer.memoryStorage();
+const upload = multer({ 
+  storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'));
+    }
+  }
 });
 
 // Cache setup (TTL: 5 minutes for static data)
@@ -1389,6 +1404,76 @@ Status: ⏳ *PENDING APPROVAL*
   }
 });
 
+// Create payment by admin (Admin only)
+app.post('/api/payments/admin', authenticate, adminOnly, upload.single('paymentProof'), async (req, res) => {
+  try {
+    const { studentId, amount, description } = req.body;
+
+    if (!studentId || !amount || !description) {
+      return res.status(400).json({ error: 'Student, amount, and description are required' });
+    }
+
+    // Verify student exists
+    const student = await prisma.student.findUnique({
+      where: { id: studentId },
+      include: {
+        user: {
+          select: { name: true, email: true }
+        }
+      }
+    });
+
+    if (!student) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+
+    // Convert uploaded file to base64 if exists
+    let proofImage = null;
+    if (req.file) {
+      proofImage = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+    } else {
+      // Provide placeholder for admin-created payments without proof
+      proofImage = 'data:text/plain;base64,YWRtaW4tY3JlYXRlZA=='; // "admin-created" in base64
+    }
+
+    // Create payment with auto-approval
+    const payment = await prisma.payment.create({
+      data: {
+        student: {
+          connect: { id: studentId }
+        },
+        approver: {
+          connect: { id: req.user.id }
+        },
+        amount: parseFloat(amount),
+        payerName: student.user.name, // Use student name as payer
+        paymentDate: new Date(), // Use current date
+        description,
+        proofImage: proofImage,
+        status: 'APPROVED', // Auto-approve admin-created payments
+        approvedAt: new Date()
+      },
+      include: {
+        student: {
+          include: {
+            user: {
+              select: { name: true, email: true }
+            }
+          }
+        },
+        approver: {
+          select: { name: true }
+        }
+      }
+    });
+
+    res.status(201).json(payment);
+  } catch (error) {
+    console.error('Admin create payment error:', error);
+    res.status(500).json({ error: 'Failed to create payment' });
+  }
+});
+
 // Approve payment (Admin only)
 app.put('/api/payments/:id/approve', authenticate, adminOnly, async (req, res) => {
   try {
@@ -1400,10 +1485,6 @@ app.put('/api/payments/:id/approve', authenticate, adminOnly, async (req, res) =
 
     if (!payment) {
       return res.status(404).json({ error: 'Payment not found' });
-    }
-
-    if (payment.status !== 'PENDING') {
-      return res.status(400).json({ error: 'Payment is not pending' });
     }
 
     const updated = await prisma.payment.update({
@@ -1451,10 +1532,6 @@ app.put('/api/payments/:id/reject', authenticate, adminOnly, async (req, res) =>
 
     if (!payment) {
       return res.status(404).json({ error: 'Payment not found' });
-    }
-
-    if (payment.status !== 'PENDING') {
-      return res.status(400).json({ error: 'Payment is not pending' });
     }
 
     const updated = await prisma.payment.update({
