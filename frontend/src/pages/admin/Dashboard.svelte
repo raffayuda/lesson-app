@@ -326,11 +326,11 @@
                         <tr>
                             <th
                                 class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
-                                >Student</th
+                                >Murid</th
                             >
                             <th
                                 class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
-                                >Class</th
+                                >Kelas</th
                             >
                             <th
                                 class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider"
