@@ -407,7 +407,7 @@
                         required
                         rows="3"
                         class="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-primary-500"
-                        placeholder="Contoh: Biaya SPP - Januari 2025"
+                        placeholder="Contoh: Bayar Les Bulan Juni"
                     ></textarea>
                 </div>
 

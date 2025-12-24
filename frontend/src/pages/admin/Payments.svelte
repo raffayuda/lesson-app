@@ -1077,7 +1077,7 @@
                         required
                         rows="3"
                         class="w-full px-3 py-2 border dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white"
-                        placeholder="Contoh: Pembayaran SPP Januari 2025"
+                        placeholder="Contoh: Bayar Les Bulan Juni"
                     ></textarea>
                 </div>
 
