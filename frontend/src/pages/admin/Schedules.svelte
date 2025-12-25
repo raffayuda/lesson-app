@@ -1453,7 +1453,7 @@
                         ></i>
                         <span
                             class="text-sm font-medium text-orange-700 dark:text-orange-300"
-                            >Materials</span
+                            >Materi</span
                         >
                     </button>
                 </div>
