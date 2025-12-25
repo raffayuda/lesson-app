@@ -10,7 +10,8 @@
     let loading = true;
 
     // Filters
-    let filterDate = "";
+    let filterStartDate = "";
+    let filterEndDate = "";
     let filterSchedule = "";
     let filterStudent = "";
     let filterStatus = "";
@@ -58,7 +59,8 @@
         currentPage = 1; // Reset to first page when filtering
         try {
             const params = new URLSearchParams();
-            if (filterDate) params.append("date", filterDate);
+            if (filterStartDate) params.append("startDate", filterStartDate);
+            if (filterEndDate) params.append("endDate", filterEndDate);
             if (filterSchedule) params.append("scheduleId", filterSchedule);
             if (filterStudent) params.append("studentId", filterStudent);
             if (filterStatus) params.append("status", filterStatus);
@@ -78,7 +80,8 @@
     }
 
     function clearFilters() {
-        filterDate = "";
+        filterStartDate = "";
+        filterEndDate = "";
         filterSchedule = "";
         filterStudent = "";
         filterStatus = "";
@@ -96,7 +99,8 @@
             params.append("limit", "10000"); // Get all data, not paginated
 
             // Apply current filters
-            if (filterDate) params.append("date", filterDate);
+            if (filterStartDate) params.append("startDate", filterStartDate);
+            if (filterEndDate) params.append("endDate", filterEndDate);
             if (filterSchedule) params.append("scheduleId", filterSchedule);
             if (filterStudent) params.append("studentId", filterStudent);
             if (filterStatus) params.append("status", filterStatus);
@@ -382,16 +386,26 @@
             </h3>
 
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                <div>
+                <div class="lg:col-span-2">
                     <label
                         class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-                        >Tanggal</label
+                        >Periode Tanggal</label
                     >
-                    <input
-                        type="date"
-                        bind:value={filterDate}
-                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
+                    <div class="flex gap-2 items-center">
+                        <input
+                            type="date"
+                            bind:value={filterStartDate}
+                            placeholder="Dari"
+                            class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        />
+                        <span class="text-gray-500 dark:text-gray-400 text-sm">-</span>
+                        <input
+                            type="date"
+                            bind:value={filterEndDate}
+                            placeholder="Sampai"
+                            class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        />
+                    </div>
                 </div>
 
                 <div>

@@ -827,7 +827,7 @@ app.get('/api/students/:id/schedules', authenticate, async (req, res) => {
 // Get attendance records
 app.get('/api/attendance', authenticate, async (req, res) => {
   try {
-    const { scheduleId, studentId, date, status } = req.query;
+    const { scheduleId, studentId, date, startDate, endDate, status } = req.query;
 
     const where = {};
 
@@ -835,7 +835,33 @@ app.get('/api/attendance', authenticate, async (req, res) => {
     if (studentId) where.studentId = studentId;
     if (status) where.status = status;
 
-    if (date) {
+    // Handle date range filter
+    if (startDate || endDate) {
+      const start = startDate ? new Date(startDate) : new Date('1970-01-01');
+      const end = endDate ? new Date(endDate) : new Date();
+      
+      // Set time boundaries
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+
+      where.OR = [
+        {
+          scheduleDate: {
+            gte: start,
+            lte: end
+          }
+        },
+        {
+          scheduleDate: null,
+          date: {
+            gte: start,
+            lte: end
+          }
+        }
+      ];
+    }
+    // Handle single date filter (for backward compatibility)
+    else if (date) {
       // Parse date as local time, not UTC
       // date format: "YYYY-MM-DD"
       const [year, month, day] = date.split('-').map(Number);
