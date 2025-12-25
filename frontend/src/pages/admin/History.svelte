@@ -41,7 +41,9 @@
                     }),
                 ]);
 
-            if (attendanceRes.ok) attendances = await attendanceRes.json();
+            if (attendanceRes.ok) {
+                attendances = await attendanceRes.json();
+            }
             if (schedulesRes.ok) schedules = await schedulesRes.json();
             if (studentsRes.ok) students = await studentsRes.json();
         } catch (error) {
@@ -114,19 +116,17 @@
                 ? exportData.filter((att) => att.method === filterMethod)
                 : exportData;
 
-            console.log(`Exporting ${filteredData.length} records (from all pages)`);
-
             // Prepare data for Excel
             const data = filteredData.map((att) => ({
-                "Tanggal Absen": new Date(att.checkInTime).toLocaleDateString(),
-                "Waktu Absen": new Date(att.checkInTime).toLocaleTimeString(),
-                "Siswa": att.student.user.name,
+                "Tanggal Absen": formatDate(att.date),
+                "Waktu Absen": formatTime(att.date),
+                Siswa: att.student.user.name,
                 "Student ID": att.student.studentId,
                 "Mata Pelajaran": att.schedule.subject,
-                "Jadwal": `${att.scheduleDate ? new Date(att.scheduleDate).toLocaleDateString() : new Date(att.checkInTime).toLocaleDateString()} • ${att.schedule.day} • ${att.schedule.startTime.substring(0, 5)} - ${att.schedule.endTime.substring(0, 5)}`,
-                "Status": getStatusLabel(att.status),
-                "Metode": att.method === "MANUAL" ? "Manual" : "QR Code",
-                "Ditandai Oleh": att.markedBy?.name || "-",
+                Jadwal: `${att.scheduleDate ? formatDate(att.scheduleDate) : formatDate(att.date)} • ${att.schedule.day} • ${att.schedule.startTime.substring(0, 5)} - ${att.schedule.endTime.substring(0, 5)}`,
+                Status: getStatusLabel(att.status),
+                Metode: att.method === "MANUAL" ? "Manual" : "QR Code",
+                "Ditandai Oleh": att.marker?.name || "-",
             }));
 
             // Create workbook and worksheet
@@ -154,8 +154,6 @@
 
             // Save file
             XLSX.writeFile(wb, filename);
-
-            console.log(`Berhasil mengekspor ${data.length} data absensi ke Excel`);
         } catch (error) {
             console.error("Export error:", error);
             alert("Gagal mengekspor data: " + error.message);
@@ -184,6 +182,24 @@
         return labels[status] || status;
     }
 
+    function formatDate(dateString) {
+        if (!dateString) return '-';
+        const date = new Date(dateString);
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}/${month}/${year}`;
+    }
+
+    function formatTime(dateString) {
+        if (!dateString) return '-';
+        const date = new Date(dateString);
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const seconds = String(date.getSeconds()).padStart(2, '0');
+        return `${hours}:${minutes}:${seconds}`;
+    }
+
     // All filtered data (for stats and export)
     $: allFilteredAttendances = attendances.filter((att) => {
         if (filterMethod && att.method !== filterMethod) return false;
@@ -196,10 +212,13 @@
         present: allFilteredAttendances.filter((a) => a.status === "PRESENT")
             .length,
         sick: allFilteredAttendances.filter((a) => a.status === "SICK").length,
-        permission: allFilteredAttendances.filter((a) => a.status === "PERMISSION")
+        permission: allFilteredAttendances.filter(
+            (a) => a.status === "PERMISSION",
+        ).length,
+        absent: allFilteredAttendances.filter((a) => a.status === "ABSENT")
             .length,
-        absent: allFilteredAttendances.filter((a) => a.status === "ABSENT").length,
-        manual: allFilteredAttendances.filter((a) => a.method === "MANUAL").length,
+        manual: allFilteredAttendances.filter((a) => a.method === "MANUAL")
+            .length,
         qr: allFilteredAttendances.filter((a) => a.method === "QR").length,
     };
 
@@ -214,7 +233,7 @@
     // Paginated data for display
     $: paginatedAttendances = allFilteredAttendances.slice(
         (currentPage - 1) * itemsPerPage,
-        currentPage * itemsPerPage
+        currentPage * itemsPerPage,
     );
 
     function goToPage(page) {
@@ -240,11 +259,11 @@
         const showPages = 5; // Show 5 page numbers
         let startPage = Math.max(1, currentPage - Math.floor(showPages / 2));
         let endPage = Math.min(totalPages, startPage + showPages - 1);
-        
+
         if (endPage - startPage < showPages - 1) {
             startPage = Math.max(1, endPage - showPages + 1);
         }
-        
+
         for (let i = startPage; i <= endPage; i++) {
             pages.push(i);
         }
@@ -454,7 +473,7 @@
                     class="px-4 py-2 bg-red-700 dark:bg-red-600 hover:bg-red-600 dark:hover:bg-red-700 text-white rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     style="background-color: red;"
                 >
-                    <i class="fas fa-times mr-2"></i>   
+                    <i class="fas fa-times mr-2"></i>
                     Hapus Filter
                 </button>
             </div>
@@ -518,16 +537,12 @@
                                         class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"
                                     >
                                         <div class="dark:text-white">
-                                            {new Date(
-                                                attendance.checkInTime,
-                                            ).toLocaleDateString()}
+                                            {formatDate(attendance.date)}
                                         </div>
                                         <div
                                             class="text-xs text-gray-500 dark:text-gray-400"
                                         >
-                                            {new Date(
-                                                attendance.checkInTime,
-                                            ).toLocaleTimeString()}
+                                            {formatTime(attendance.date)}
                                         </div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
@@ -546,7 +561,16 @@
                                         <div
                                             class="text-xs text-gray-500 dark:text-gray-400"
                                         >
-                                            {attendance.scheduleDate ? new Date(attendance.scheduleDate).toLocaleDateString() : new Date(attendance.checkInTime).toLocaleDateString()} • {attendance.schedule.day} • {attendance.schedule.startTime.substring(0, 5)} - {attendance.schedule.endTime.substring(0, 5)}
+                                            {attendance.scheduleDate
+                                                ? formatDate(attendance.scheduleDate)
+                                                : formatDate(attendance.date)} • {attendance
+                                                .schedule.day} • {attendance.schedule.startTime.substring(
+                                                0,
+                                                5,
+                                            )} - {attendance.schedule.endTime.substring(
+                                                0,
+                                                5,
+                                            )}
                                         </div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
@@ -584,7 +608,7 @@
                                     <td
                                         class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"
                                     >
-                                        {attendance.markedBy?.name || "-"}
+                                        {attendance.marker?.name || "-"}
                                     </td>
                                 </tr>
                             {/each}
@@ -593,12 +617,18 @@
                 </div>
 
                 <!-- Pagination Controls -->
-                <div class="bg-gray-50 dark:bg-gray-700 px-6 py-4 border-t border-gray-200 dark:border-gray-600">
+                <div
+                    class="bg-gray-50 dark:bg-gray-700 px-6 py-4 border-t border-gray-200 dark:border-gray-600"
+                >
                     <div class="flex items-center justify-between">
                         <div class="text-sm text-gray-600 dark:text-gray-300">
-                            Menampilkan {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, allFilteredAttendances.length)} dari {allFilteredAttendances.length} data
+                            Menampilkan {(currentPage - 1) * itemsPerPage + 1} -
+                            {Math.min(
+                                currentPage * itemsPerPage,
+                                allFilteredAttendances.length,
+                            )} dari {allFilteredAttendances.length} data
                         </div>
-                        
+
                         <div class="flex items-center gap-2">
                             <!-- Previous Button -->
                             <button
@@ -614,7 +644,10 @@
                                 {#each Array(totalPages) as _, i}
                                     <button
                                         on:click={() => goToPage(i + 1)}
-                                        class="px-3 py-2 text-sm font-medium rounded-lg transition-colors {currentPage === i + 1 ? 'bg-primary-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600'}"
+                                        class="px-3 py-2 text-sm font-medium rounded-lg transition-colors {currentPage ===
+                                        i + 1
+                                            ? 'bg-primary-600 text-white'
+                                            : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600'}"
                                     >
                                         {i + 1}
                                     </button>
@@ -633,7 +666,10 @@
                                 {#each pageNumbers as pageNum}
                                     <button
                                         on:click={() => goToPage(pageNum)}
-                                        class="px-3 py-2 text-sm font-medium rounded-lg transition-colors {currentPage === pageNum ? 'bg-primary-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600'}"
+                                        class="px-3 py-2 text-sm font-medium rounded-lg transition-colors {currentPage ===
+                                        pageNum
+                                            ? 'bg-primary-600 text-white'
+                                            : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600'}"
                                     >
                                         {pageNum}
                                     </button>

@@ -34,6 +34,7 @@
     let filterStudent = "";
     let filterStartDate = "";
     let filterEndDate = "";
+    let filterMethod = ""; // Payment method filter
 
     // Modals
     let showProofModal = false;
@@ -43,13 +44,14 @@
     let selectedPayment = null;
     let rejectionReason = "";
     let newStatus = "";
-    
+
     // Add payment form
     let addPaymentForm = {
         studentId: "",
         amount: "",
         description: "",
-        paymentProof: null
+        method: "",
+        paymentProof: null,
     };
     let addPaymentSubmitting = false;
     let previewImage = null;
@@ -57,18 +59,19 @@
     onMount(() => {
         fetchData();
     });
-    
+
     function openAddPaymentModal() {
         addPaymentForm = {
             studentId: "",
             amount: "",
             description: "",
-            paymentProof: null
+            method: "",
+            paymentProof: null,
         };
         previewImage = null;
         showAddPaymentModal = true;
     }
-    
+
     function handleFileChange(event) {
         const file = event.target.files[0];
         if (file) {
@@ -80,36 +83,38 @@
             reader.readAsDataURL(file);
         }
     }
-    
+
     async function submitAddPayment() {
         // Trim and validate
         const studentId = addPaymentForm.studentId?.trim();
         const amount = parseFloat(addPaymentForm.amount);
         const description = addPaymentForm.description?.trim();
-        
-        if (!studentId || !amount || amount <= 0 || !description) {
-            toastStore.warning("Siswa, jumlah, dan deskripsi wajib diisi");
+        const method = addPaymentForm.method?.trim();
+
+        if (!studentId || !amount || amount <= 0 || !description || !method) {
+            toastStore.warning("Siswa, jumlah, metode, dan deskripsi wajib diisi");
             return;
         }
-        
+
         addPaymentSubmitting = true;
         try {
             const formData = new FormData();
-            formData.append('studentId', studentId);
-            formData.append('amount', amount.toString());
-            formData.append('description', description);
+            formData.append("studentId", studentId);
+            formData.append("amount", amount.toString());
+            formData.append("description", description);
+            formData.append("method", method);
             if (addPaymentForm.paymentProof) {
-                formData.append('paymentProof', addPaymentForm.paymentProof);
+                formData.append("paymentProof", addPaymentForm.paymentProof);
             }
-            
+
             const response = await fetch(`${API_URL}/payments/admin`, {
-                method: 'POST',
+                method: "POST",
                 headers: {
                     Authorization: `Bearer ${auth.getToken()}`,
                 },
-                body: formData
+                body: formData,
             });
-            
+
             if (response.ok) {
                 toastStore.success("Pembayaran berhasil ditambahkan!");
                 showAddPaymentModal = false;
@@ -117,7 +122,8 @@
                     studentId: "",
                     amount: "",
                     description: "",
-                    paymentProof: null
+                    method: "",
+                    paymentProof: null,
                 };
                 previewImage = null;
                 await fetchData();
@@ -183,6 +189,7 @@
             params.append("limit", limit.toString());
             if (filterStatus) params.append("status", filterStatus);
             if (filterStudent) params.append("studentId", filterStudent);
+            if (filterMethod) params.append("method", filterMethod);
             if (filterStartDate) params.append("startDate", filterStartDate);
             if (filterEndDate) params.append("endDate", filterEndDate);
 
@@ -211,6 +218,7 @@
         filterStudent = "";
         filterStartDate = "";
         filterEndDate = "";
+        filterMethod = "";
         currentPage = 1;
         fetchData();
     }
@@ -252,17 +260,21 @@
         processing = true;
         processingMessage = "Mengubah status...";
         try {
-            const endpoint = newStatus === "APPROVED" 
-                ? `${API_URL}/payments/${selectedPayment.id}/approve`
-                : `${API_URL}/payments/${selectedPayment.id}/reject`;
-            
+            const endpoint =
+                newStatus === "APPROVED"
+                    ? `${API_URL}/payments/${selectedPayment.id}/approve`
+                    : `${API_URL}/payments/${selectedPayment.id}/reject`;
+
             const response = await fetch(endpoint, {
                 method: "PUT",
                 headers: {
                     Authorization: `Bearer ${auth.getToken()}`,
                     "Content-Type": "application/json",
                 },
-                body: newStatus === "REJECTED" ? JSON.stringify({ reason: rejectionReason }) : undefined,
+                body:
+                    newStatus === "REJECTED"
+                        ? JSON.stringify({ reason: rejectionReason })
+                        : undefined,
             });
 
             if (response.ok) {
@@ -429,6 +441,7 @@
             // Apply current filters
             if (filterStatus) params.append("status", filterStatus);
             if (filterStudent) params.append("studentId", filterStudent);
+            if (filterMethod) params.append("method", filterMethod);
             if (filterStartDate) params.append("startDate", filterStartDate);
             if (filterEndDate) params.append("endDate", filterEndDate);
 
@@ -445,16 +458,22 @@
 
             // Map data for Excel
             const data = exportData.map((p) => ({
-                Tanggal: new Date(p.paymentDate).toLocaleDateString('id-ID'),
+                Tanggal: new Date(p.paymentDate).toLocaleDateString("id-ID"),
                 Siswa: p.student.user.name,
                 Kelas: p.student.class,
                 "Nama Pembayar": p.payerName,
                 Jumlah: p.amount,
+                Metode: p.method || "-",
                 Deskripsi: p.description,
-                Status: p.status === 'PENDING' ? 'Menunggu' : p.status === 'APPROVED' ? 'Disetujui' : 'Ditolak',
+                Status:
+                    p.status === "PENDING"
+                        ? "Menunggu"
+                        : p.status === "APPROVED"
+                          ? "Disetujui"
+                          : "Ditolak",
                 "Disetujui Oleh": p.approver?.name || "-",
                 "Disetujui Pada": p.approvedAt
-                    ? new Date(p.approvedAt).toLocaleString('id-ID')
+                    ? new Date(p.approvedAt).toLocaleString("id-ID")
                     : "-",
                 "Alasan Penolakan": p.rejectionReason || "-",
             }));
@@ -504,6 +523,32 @@
             style: "currency",
             currency: "IDR",
         }).format(amount);
+    }
+
+    function getMethodLabel(method) {
+        const labels = {
+            CASH: "Cash / Tunai",
+            BCA: "BCA",
+            BRI: "BRI",
+            GOPAY: "Gopay",
+            SHOPEE_PAY: "Shopee Pay",
+            DANA: "Dana",
+            OVO: "OVO",
+        };
+        return labels[method] || method || "-";
+    }
+
+    function getMethodIcon(method) {
+        const icons = {
+            CASH: "fa-money-bill-wave",
+            BCA: "fa-university",
+            BRI: "fa-university",
+            GOPAY: "fa-wallet",
+            SHOPEE_PAY: "fa-shopping-bag",
+            DANA: "fa-wallet",
+            OVO: "fa-wallet",
+        };
+        return icons[method] || "fa-circle";
     }
 
     $: stats = {
@@ -606,9 +651,10 @@
                 Filter
             </h3>
 
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
                 <div>
-                    <label class="block text-sm font-medium dark:text-gray-300 mb-1"
+                    <label
+                        class="block text-sm font-medium dark:text-gray-300 mb-1"
                         >Status</label
                     >
                     <select
@@ -623,7 +669,8 @@
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium dark:text-gray-300 mb-1"
+                    <label
+                        class="block text-sm font-medium dark:text-gray-300 mb-1"
                         >Siswa</label
                     >
                     <select
@@ -640,7 +687,28 @@
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium dark:text-gray-300 mb-1"
+                    <label
+                        class="block text-sm font-medium dark:text-gray-300 mb-1"
+                        >Metode</label
+                    >
+                    <select
+                        bind:value={filterMethod}
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    >
+                        <option value="">Semua Metode</option>
+                        <option value="CASH">Cash / Tunai</option>
+                        <option value="BCA">BCA</option>
+                        <option value="BRI">BRI</option>
+                        <option value="GOPAY">Gopay</option>
+                        <option value="SHOPEE_PAY">Shopee Pay</option>
+                        <option value="DANA">Dana</option>
+                        <option value="OVO">OVO</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label
+                        class="block text-sm font-medium dark:text-gray-300 mb-1"
                         >Tanggal Mulai</label
                     >
                     <input
@@ -651,7 +719,8 @@
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium dark:text-gray-300 mb-1"
+                    <label
+                        class="block text-sm font-medium dark:text-gray-300 mb-1"
                         >Tanggal Akhir</label
                     >
                     <input
@@ -674,7 +743,8 @@
                 <button
                     on:click={clearFilters}
                     class="px-4 py-2 dark:bg-red-600 hover:bg-red-600 dark:hover:bg-red-700 text-white rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    style="background-color: red;">
+                    style="background-color: red;"
+                >
                     <i class="fas fa-times mr-2"></i>
                     Hapus Filter
                 </button>
@@ -715,6 +785,10 @@
                             >
                             <th
                                 class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase"
+                                >Metode</th
+                            >
+                            <th
+                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase"
                                 >Deskripsi</th
                             >
                             <th
@@ -731,7 +805,9 @@
                         class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700"
                     >
                         {#each payments as payment}
-                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200">
+                            <tr
+                                class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200"
+                            >
                                 <td
                                     class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-white"
                                 >
@@ -752,6 +828,16 @@
                                     {formatCurrency(payment.amount)}
                                 </td>
                                 <td
+                                    class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-white"
+                                >
+                                    <span
+                                        class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                                    >
+                                        <i class="fas {getMethodIcon(payment.method)} mr-1"></i>
+                                        {getMethodLabel(payment.method)}
+                                    </span>
+                                </td>
+                                <td
                                     class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400"
                                 >
                                     {payment.description}
@@ -767,10 +853,12 @@
                                                 <i class="fas fa-clock"></i>
                                                 Menunggu
                                             {:else if payment.status === "APPROVED"}
-                                                <i class="fas fa-check-circle"></i>
+                                                <i class="fas fa-check-circle"
+                                                ></i>
                                                 Disetujui
                                             {:else if payment.status === "REJECTED"}
-                                                <i class="fas fa-times-circle"></i>
+                                                <i class="fas fa-times-circle"
+                                                ></i>
                                                 Ditolak
                                             {/if}
                                         </span>
@@ -778,13 +866,18 @@
                                             <p
                                                 class="text-xs text-gray-500 dark:text-gray-400"
                                             >
-                                                <i class="fas fa-user text-xs"></i> {payment.approver.name}
+                                                <i class="fas fa-user text-xs"
+                                                ></i>
+                                                {payment.approver.name}
                                             </p>
                                             {#if payment.status === "REJECTED" && payment.rejectionReason}
                                                 <p
                                                     class="text-xs text-red-600 dark:text-red-400"
                                                 >
-                                                    <i class="fas fa-info-circle"></i> {payment.rejectionReason}
+                                                    <i
+                                                        class="fas fa-info-circle"
+                                                    ></i>
+                                                    {payment.rejectionReason}
                                                 </p>
                                             {/if}
                                         {/if}
@@ -793,16 +886,29 @@
                                 <td
                                     class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium"
                                 >
-                                    <div class="flex items-center justify-end gap-2">
+                                    <div
+                                        class="flex items-center justify-end gap-2"
+                                    >
+                                        {#if payment.proofUrl}
+                                            <button
+                                                on:click={() => viewProof(payment)}
+                                                class="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                                                title="Lihat Bukti"
+                                            >
+                                                <i class="fas fa-image"></i>
+                                            </button>
+                                        {:else}
+                                            <button
+                                                on:click={() => viewProof(payment)}
+                                                class="p-2 text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/20 rounded-lg transition-colors"
+                                                title="Tidak ada bukti"
+                                            >
+                                                <i class="fas fa-image-slash"></i>
+                                            </button>
+                                        {/if}
                                         <button
-                                            on:click={() => viewProof(payment)}
-                                            class="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-                                            title="Lihat Bukti"
-                                        >
-                                            <i class="fas fa-image"></i>
-                                        </button>
-                                        <button
-                                            on:click={() => openChangeStatusModal(payment)}
+                                            on:click={() =>
+                                                openChangeStatusModal(payment)}
                                             class="p-2 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors"
                                             title="Ubah Status"
                                         >
@@ -950,12 +1056,24 @@
                 </div>
 
                 <div>
-                    <p class="text-gray-500 text-sm mb-2">Bukti Pembayaran</p>
-                    <img
-                        src={selectedPayment.proofImage}
-                        alt="Bukti Pembayaran"
-                        class="w-full rounded-lg border border-gray-300 h-auto max-h-[300px] object-contain"
-                    />
+                    <p class="text-gray-500 dark:text-gray-400 text-sm mb-2">Bukti Pembayaran</p>
+                    {#if selectedPayment.proofUrl && selectedPayment.proofUrl !== null}
+                        <img
+                            src={selectedPayment.proofUrl}
+                            alt="Bukti Pembayaran"
+                            class="w-full rounded-lg border border-gray-300 dark:border-gray-600 h-auto max-h-[300px] object-contain bg-gray-50 dark:bg-gray-900"
+                        />
+                    {:else}
+                        <div class="w-full rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 p-8 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900">
+                            <div class="flex flex-col items-center justify-center text-center">
+                                <div class="w-20 h-20 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900 dark:to-blue-800 flex items-center justify-center mb-4 shadow-lg">
+                                    <i class="fas fa-receipt text-3xl text-blue-600 dark:text-blue-300"></i>
+                                </div>
+                                <p class="text-gray-600 dark:text-gray-400 font-medium mb-1">Tidak Ada Bukti Pembayaran</p>
+                                <p class="text-xs text-gray-500 dark:text-gray-500">Pembayaran ini dibuat tanpa bukti upload</p>
+                            </div>
+                        </div>
+                    {/if}
                 </div>
             </div>
         </div>
@@ -968,7 +1086,9 @@
         class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
     >
         <div class="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-6">
-            <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+            <h3
+                class="text-xl font-semibold text-gray-900 dark:text-white mb-4"
+            >
                 Tolak Pembayaran
             </h3>
 
@@ -1020,7 +1140,12 @@
         class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
         on:click={() => {
             showAddPaymentModal = false;
-            addPaymentForm = { studentId: "", amount: "", description: "", paymentProof: null };
+            addPaymentForm = {
+                studentId: "",
+                amount: "",
+                description: "",
+                paymentProof: null,
+            };
             previewImage = null;
         }}
     >
@@ -1036,7 +1161,8 @@
             <form on:submit|preventDefault={submitAddPayment} class="space-y-4">
                 <!-- Student Selection -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    <label
+                        class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                         >Siswa <span class="text-red-500">*</span></label
                     >
                     <select
@@ -1046,15 +1172,19 @@
                     >
                         <option value="">Pilih Siswa</option>
                         {#each students as student}
-                            <option value={student.id}>{student.user.name}</option>
+                            <option value={student.id}
+                                >{student.user.name}</option
+                            >
                         {/each}
                     </select>
                 </div>
 
                 <!-- Amount -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-                        >Jumlah Pembayaran <span class="text-red-500">*</span></label
+                    <label
+                        class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                        >Jumlah Pembayaran <span class="text-red-500">*</span
+                        ></label
                     >
                     <input
                         type="number"
@@ -1069,7 +1199,8 @@
 
                 <!-- Description -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    <label
+                        class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                         >Deskripsi <span class="text-red-500">*</span></label
                     >
                     <textarea
@@ -1081,9 +1212,32 @@
                     ></textarea>
                 </div>
 
+                <!-- Payment Method -->
+                <div>
+                    <label
+                        class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                        >Metode Pembayaran <span class="text-red-500">*</span></label
+                    >
+                    <select
+                        bind:value={addPaymentForm.method}
+                        required
+                        class="w-full px-3 py-2 border dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white"
+                    >
+                        <option value="">-- Pilih Metode --</option>
+                        <option value="CASH">Cash / Tunai</option>
+                        <option value="BCA">BCA</option>
+                        <option value="BRI">BRI</option>
+                        <option value="GOPAY">Gopay</option>
+                        <option value="SHOPEE_PAY">Shopee Pay</option>
+                        <option value="DANA">Dana</option>
+                        <option value="OVO">OVO</option>
+                    </select>
+                </div>
+
                 <!-- Payment Proof (Optional) -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    <label
+                        class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                         >Bukti Pembayaran (Opsional)</label
                     >
                     <input
@@ -1095,7 +1249,7 @@
                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
                         Format: JPG, PNG (Maks. 5MB)
                     </p>
-                    
+
                     {#if previewImage}
                         <div class="mt-3">
                             <img
@@ -1113,7 +1267,13 @@
                         type="button"
                         on:click={() => {
                             showAddPaymentModal = false;
-                            addPaymentForm = { studentId: "", amount: "", description: "", paymentProof: null };
+                            addPaymentForm = {
+                                studentId: "",
+                                amount: "",
+                                description: "",
+                                method: "",
+                                paymentProof: null,
+                            };
                             previewImage = null;
                         }}
                         class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg"
@@ -1164,41 +1324,63 @@
                 <!-- Payment Info -->
                 <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
                     <p class="text-sm text-gray-600 dark:text-gray-300">
-                        <span class="font-semibold">Siswa:</span> {selectedPayment.student.user.name}
+                        <span class="font-semibold">Siswa:</span>
+                        {selectedPayment.student.user.name}
                     </p>
                     <p class="text-sm text-gray-600 dark:text-gray-300 mt-1">
-                        <span class="font-semibold">Jumlah:</span> {formatCurrency(selectedPayment.amount)}
+                        <span class="font-semibold">Jumlah:</span>
+                        {formatCurrency(selectedPayment.amount)}
                     </p>
                     <p class="text-sm text-gray-600 dark:text-gray-300 mt-1">
-                        <span class="font-semibold">Deskripsi:</span> {selectedPayment.description}
+                        <span class="font-semibold">Deskripsi:</span>
+                        {selectedPayment.description}
                     </p>
                 </div>
 
                 <!-- Status Selection -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                    <label
+                        class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
                         >Status Baru <span class="text-red-500">*</span></label
                     >
                     <div class="space-y-2">
-                        <label class="flex items-center p-3 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 {newStatus === 'APPROVED' ? 'bg-green-50 dark:bg-green-900/20 border-green-500' : ''}">
+                        <label
+                            class="flex items-center p-3 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 {newStatus ===
+                            'APPROVED'
+                                ? 'bg-green-50 dark:bg-green-900/20 border-green-500'
+                                : ''}"
+                        >
                             <input
                                 type="radio"
                                 bind:group={newStatus}
                                 value="APPROVED"
                                 class="mr-3"
                             />
-                            <i class="fas fa-check-circle text-green-600 mr-2"></i>
-                            <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Disetujui</span>
+                            <i class="fas fa-check-circle text-green-600 mr-2"
+                            ></i>
+                            <span
+                                class="text-sm font-medium text-gray-700 dark:text-gray-200"
+                                >Disetujui</span
+                            >
                         </label>
-                        <label class="flex items-center p-3 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 {newStatus === 'REJECTED' ? 'bg-red-50 dark:bg-red-900/20 border-red-500' : ''}">
+                        <label
+                            class="flex items-center p-3 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 {newStatus ===
+                            'REJECTED'
+                                ? 'bg-red-50 dark:bg-red-900/20 border-red-500'
+                                : ''}"
+                        >
                             <input
                                 type="radio"
                                 bind:group={newStatus}
                                 value="REJECTED"
                                 class="mr-3"
                             />
-                            <i class="fas fa-times-circle text-red-600 mr-2"></i>
-                            <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Ditolak</span>
+                            <i class="fas fa-times-circle text-red-600 mr-2"
+                            ></i>
+                            <span
+                                class="text-sm font-medium text-gray-700 dark:text-gray-200"
+                                >Ditolak</span
+                            >
                         </label>
                     </div>
                 </div>
@@ -1206,8 +1388,10 @@
                 <!-- Rejection Reason (shown when REJECTED selected) -->
                 {#if newStatus === "REJECTED"}
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-                            >Alasan Penolakan <span class="text-red-500">*</span></label
+                        <label
+                            class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                            >Alasan Penolakan <span class="text-red-500">*</span
+                            ></label
                         >
                         <textarea
                             bind:value={rejectionReason}

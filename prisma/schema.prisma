@@ -47,6 +47,7 @@ model User {
   student           Student?
   markedAttendances Attendance[] @relation("MarkedBy")
   approvedPayments  Payment[]    @relation("ApprovedBy")
+  uploadedMaterials Material[]   @relation("UploadedMaterials")
 
   @@map("users")
 }
@@ -82,67 +83,99 @@ model Schedule {
   
   attendances Attendance[]
   students    ScheduleStudent[]
-
+  sections    MaterialSection[] // Linked to sections
+  // Removed direct materials relation, now goes through sections
   @@map("schedules")
 }
 
-// Junction table for many-to-many relationship
-model ScheduleStudent {
-  id         String   @id @default(uuid())
-  scheduleId String
-  studentId  String
-  schedule   Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
-  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  createdAt  DateTime @default(now())
+// ... other models ...
 
-  @@unique([scheduleId, studentId])
-  @@map("schedule_students")
+model MaterialSection {
+  id          String   @id @default(uuid())
+  title       String
+  scheduleId  String
+  schedule    Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  materials   Material[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("material_sections")
+  @@index([scheduleId])
+}
+
+model Material {
+  id          String   @id @default(uuid())
+  sectionId   String   // Link to section instead of schedule
+  section     MaterialSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  fileName    String
+  fileSize    Int
+  fileData    Bytes?   @db.ByteA // Store PDF as binary data (legacy, optional)
+  fileUrl     String?  // Cloudinary URL for new uploads
+  uploadedBy  String
+  uploader    User     @relation("UploadedMaterials", fields: [uploadedBy], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("materials")
+  @@index([sectionId])
+  @@index([uploadedBy])
 }
 
 model Attendance {
-  id           String           @id @default(uuid())
-  scheduleId   String
-  schedule     Schedule         @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
-  studentId    String
-  student      Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  status       AttendanceStatus @default(PRESENT)
-  method       AttendanceMethod @default(MANUAL)
-  checkInTime  DateTime         @default(now())
-  scheduleDate DateTime?        // The actual date of the schedule
-  notes        String?
-  markedById   String?
-  markedBy     User?            @relation("MarkedBy", fields: [markedById], references: [id])
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
+  id          String           @id @default(uuid())
+  studentId   String
+  student     Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  scheduleId  String
+  schedule    Schedule         @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  status      AttendanceStatus
+  date        DateTime         @default(now()) @db.Timestamp 
+  scheduleDate DateTime?       // Target date of the schedule
+  method      AttendanceMethod @default(MANUAL)
+  markedBy    String?
+  marker      User?            @relation("MarkedBy", fields: [markedBy], references: [id])
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
 
   @@map("attendances")
-  @@index([scheduleId])
   @@index([studentId])
-  @@index([checkInTime])
+  @@index([scheduleId])
+}
+
+model ScheduleStudent {
+  id         String   @id @default(uuid())
+  studentId  String
+  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  scheduleId String
+  schedule   Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  assignedAt DateTime @default(now())
+
+  @@unique([studentId, scheduleId])
+  @@map("schedule_students")
 }
 
 model Payment {
-  id              String        @id @default(uuid())
-  studentId       String
-  student         Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  
-  amount          Float
-  payerName       String
-  paymentDate     DateTime
-  description     String
-  proofImage      String        @db.Text // Base64 encoded image
-  
-  status          PaymentStatus @default(PENDING)
-  approvedBy      String?
-  approver        User?         @relation("ApprovedBy", fields: [approvedBy], references: [id])
-  approvedAt      DateTime?
-  rejectionReason String?
-  
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id          String        @id @default(uuid())
+  studentId   String
+  student     Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  amount      Int           // Using Int for IDR
+  payerName   String?       // Name of person making payment
+  paymentDate DateTime?     // Date of payment
+  description String?       // Payment description/notes
+  status      PaymentStatus @default(PENDING)
+  method      String?       
+  proofUrl    String?
+  approvedBy  String?
+  approver    User?         @relation("ApprovedBy", fields: [approvedBy], references: [id])
+  approvedAt  DateTime?     // When payment was approved
+  rejectionReason String?   // Reason if payment was rejected
+  month       String?
+  year        Int?
+  deadline    DateTime?     // batas_pembayaran referenced in previous logs
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 
   @@map("payments")
   @@index([studentId])
-  @@index([status])
-  @@index([paymentDate])
 }

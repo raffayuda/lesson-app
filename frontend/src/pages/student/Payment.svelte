@@ -20,12 +20,12 @@
     let filterStartDate = "";
     let filterEndDate = "";
 
-    // Form data
     let form = {
         amount: "",
         payerName: "",
         paymentDate: new Date().toISOString().split("T")[0],
         description: "",
+        method: "", // Payment method
         proofImage: "",
     };
 
@@ -236,9 +236,12 @@
             !form.payerName ||
             !form.paymentDate ||
             !form.description ||
+            !form.method ||
             !form.proofImage
         ) {
-            toastStore.warning("Please fill all fields and upload proof image");
+            toastStore.warning(
+                "Please fill all fields, select payment method, and upload proof image",
+            );
             return;
         }
 
@@ -255,12 +258,12 @@
 
             if (response.ok) {
                 toastStore.success("Payment submitted successfully!");
-                // Reset form
                 form = {
                     amount: "",
                     payerName: "",
                     paymentDate: new Date().toISOString().split("T")[0],
                     description: "",
+                    method: "",
                     proofImage: "",
                 };
                 imagePreview = "";
@@ -313,33 +316,107 @@
 
 <Layout activePage="/payment" title="Pembayaran">
     <div class="max-w-4xl mx-auto space-y-6">
-        <!-- QR Code Section -->
+        <!-- Payment Methods Section -->
         <div
             class="bg-white rounded-lg shadow p-6 dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
         >
             <h2 class="text-xl dark:text-white font-semibold mb-4 text-center">
-                <i class="fas fa-qrcode mr-2"></i>
-                Pindai untuk Bayar
+                <i class="fas fa-university mr-2"></i>
+                Informasi Pembayaran
             </h2>
-            <div class="flex justify-center mb-4">
-                <img
-                    src="qris.jpg"
-                    alt="QRIS Payment Code"
-                    loading="lazy"
-                    class="w-fit h-64 rounded-lg shadow-md object-contain bg-white"
-                />
-            </div>
-            <div
-                class="text-center p-3 bg-blue-50 border border-blue-200 rounded-lg dark:bg-blue-900/20 dark:border-blue-800"
-            >
-                <i
-                    class="fas fa-info-circle text-blue-600 dark:text-blue-400 mr-2"
-                ></i>
-                <span class="text-sm text-blue-700 dark:text-blue-300"
-                    >Pindai kode QRIS di atas dengan aplikasi e-wallet untuk
-                    melakukan pembayaran</span
+
+            <div class="mb-4">
+                <label
+                    class="block text-sm font-medium dark:text-gray-300 mb-2"
                 >
+                    Pilih Metode Pembayaran
+                </label>
+                <select
+                    bind:value={form.method}
+                    class="w-full px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-primary-500"
+                >
+                    <option value="">-- Pilih Metode --</option>
+                    <option value="BCA">BCA</option>
+                    <option value="BRI">BRI</option>
+                    <option value="Gopay">Gopay</option>
+                    <option value="Shopee Pay">Shopee Pay</option>
+                    <option value="Dana">Dana</option>
+                    <option value="OVO">OVO</option>
+                </select>
             </div>
+
+            {#if form.method}
+                <div
+                    class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4"
+                >
+                    <div class="text-center mb-3">
+                        <i
+                            class="fas fa-info-circle text-blue-600 dark:text-blue-400 text-2xl mb-2"
+                        ></i>
+                        <h3
+                            class="font-semibold text-gray-900 dark:text-white text-lg"
+                        >
+                            {form.method}
+                        </h3>
+                    </div>
+
+                    <div class="space-y-2">
+                        <div
+                            class="bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-700"
+                        >
+                            <p
+                                class="text-xs text-gray-500 dark:text-gray-400 mb-1"
+                            >
+                                Nomor Rekening / Nomor HP
+                            </p>
+                            <p
+                                class="text-lg font-mono font-bold text-gray-900 dark:text-white"
+                            >
+                                {#if form.method === "BCA"}
+                                    8720364841
+                                {:else if form.method === "BRI"}
+                                    479801017707537
+                                {:else if form.method === "Gopay" || form.method === "Shopee Pay" || form.method === "Dana" || form.method === "OVO"}
+                                    081291256443
+                                {/if}
+                            </p>
+                        </div>
+
+                        <div
+                            class="bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-700"
+                        >
+                            <p
+                                class="text-xs text-gray-500 dark:text-gray-400 mb-1"
+                            >
+                                Atas Nama
+                            </p>
+                            <p
+                                class="text-base font-semibold text-gray-900 dark:text-white"
+                            >
+                                DEWI NASTITI
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="mt-3 text-center">
+                        <p class="text-xs text-blue-700 dark:text-blue-300">
+                            <i class="fas fa-exclamation-circle mr-1"></i>
+                            Pastikan transfer ke nomor rekening di atas
+                        </p>
+                    </div>
+                </div>
+            {:else}
+                <div
+                    class="text-center p-6 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700"
+                >
+                    <i
+                        class="fas fa-hand-pointer text-4xl text-gray-300 dark:text-gray-600 mb-2"
+                    ></i>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                        Pilih metode pembayaran untuk melihat nomor rekening
+                    </p>
+                </div>
+            {/if}
         </div>
 
         <!-- Payment Form -->
@@ -568,6 +645,10 @@
                                 >
                                 <th
                                     class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase"
+                                    >Method</th
+                                >
+                                <th
+                                    class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase"
                                     >Description</th
                                 >
                                 <th
@@ -594,6 +675,17 @@
                                         class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-300"
                                     >
                                         {formatCurrency(payment.amount)}
+                                    </td>
+                                    <td
+                                        class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300"
+                                    >
+                                        <span
+                                            class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                                        >
+                                            <i class="fas fa-university mr-1"
+                                            ></i>
+                                            {payment.method || "-"}
+                                        </span>
                                     </td>
                                     <td
                                         class="px-4 py-3 text-sm text-gray-500 dark:text-gray-300"

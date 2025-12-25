@@ -8,8 +8,17 @@ const crypto = require('crypto');
 const { PrismaClient } = require('@prisma/client');
 const TelegramBot = require('node-telegram-bot-api');
 const compression = require('compression');
+const { PDFDocument } = require('pdf-lib');
 const NodeCache = require('node-cache');
 const multer = require('multer');
+const cloudinary = require('cloudinary').v2;
+
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
 const app = express();
 const prisma = new PrismaClient({
@@ -23,7 +32,7 @@ const prisma = new PrismaClient({
 
 // Multer configuration for file uploads (in-memory storage)
 const storage = multer.memoryStorage();
-const upload = multer({ 
+const upload = multer({
   storage: storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
   fileFilter: (req, file, cb) => {
@@ -31,6 +40,19 @@ const upload = multer({
       cb(null, true);
     } else {
       cb(new Error('Only image files are allowed'));
+    }
+  }
+});
+
+// Multer configuration for PDF uploads (materials)
+const uploadMaterial = multer({
+  storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit - force users to compress
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'application/pdf') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PDF files are allowed'));
     }
   }
 });
@@ -317,7 +339,7 @@ app.get('/api/schedules/today', authenticate, async (req, res) => {
     const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
     const now = new Date();
     const today = days[now.getDay()];
-    
+
     // Get today's date range for specificDate matching
     const todayStart = new Date(now);
     todayStart.setHours(0, 0, 0, 0);
@@ -366,7 +388,7 @@ app.get('/api/schedules/:id', authenticate, async (req, res) => {
       include: {
         attendances: {
           include: { student: true },
-          orderBy: { checkInTime: 'desc' }
+          orderBy: { date: 'desc' }
         }
       }
     });
@@ -401,12 +423,12 @@ app.post('/api/schedules', authenticate, adminOnly, async (req, res) => {
     // Create schedule and assign students in transaction
     const result = await prisma.$transaction(async (tx) => {
       const scheduleData = { subject, class: scheduleClass, day, startTime, endTime, teacherName, room, qrCode };
-      
+
       // Add specificDate if provided (for one-time schedules)
       if (specificDate) {
         scheduleData.specificDate = new Date(specificDate);
       }
-      
+
       const schedule = await tx.schedule.create({
         data: scheduleData
       });
@@ -443,14 +465,14 @@ app.put('/api/schedules/:id', authenticate, adminOnly, async (req, res) => {
 
     const result = await prisma.$transaction(async (tx) => {
       const scheduleData = { subject, class: scheduleClass, day, startTime, endTime, teacherName, room };
-      
+
       // Add specificDate if provided (for one-time schedules), or set to null for recurring
       if (specificDate) {
         scheduleData.specificDate = new Date(specificDate);
       } else {
         scheduleData.specificDate = null;
       }
-      
+
       const schedule = await tx.schedule.update({
         where: { id },
         data: scheduleData
@@ -621,7 +643,7 @@ app.get('/api/students/:id', authenticate, async (req, res) => {
         },
         attendances: {
           include: { schedule: true },
-          orderBy: { checkInTime: 'desc' },
+          orderBy: { date: 'desc' },
           take: 20
         }
       }
@@ -820,8 +842,6 @@ app.get('/api/attendance', authenticate, async (req, res) => {
       const startDate = new Date(year, month - 1, day, 0, 0, 0, 0);
       const endDate = new Date(year, month - 1, day, 23, 59, 59, 999);
 
-      console.log(`Filtering attendance for date ${date}: ${startDate} to ${endDate}`);
-
       // Use scheduleDate if available, fallback to checkInTime
       where.OR = [
         {
@@ -832,7 +852,7 @@ app.get('/api/attendance', authenticate, async (req, res) => {
         },
         {
           scheduleDate: null,
-          checkInTime: {
+          date: {
             gte: startDate,
             lte: endDate
           }
@@ -851,11 +871,11 @@ app.get('/api/attendance', authenticate, async (req, res) => {
           }
         },
         schedule: true,
-        markedBy: {
+        marker: {
           select: { name: true }
         }
       },
-      orderBy: { checkInTime: 'desc' }
+      orderBy: { date: 'desc' }
     });
 
     res.json(attendances);
@@ -892,29 +912,27 @@ app.post('/api/attendance/manual', authenticate, adminOnly, async (req, res) => 
     } else {
       targetDate = new Date();
     }
-    
+
     // Extract hour and minute from schedule startTime (format: "HH:MM" or "HH:MM:SS")
     const [hour, minute] = schedule.startTime.split(':').map(Number);
-    
+
     // Create schedule date/time for checking duplicates
     const scheduleDateTime = new Date(targetDate);
     scheduleDateTime.setHours(hour, minute, 0, 0);
-    
+
     // For checking existing attendance, use date range
     const dayStart = new Date(targetDate);
     dayStart.setHours(0, 0, 0, 0);
     const dayEnd = new Date(dayStart);
     dayEnd.setDate(dayEnd.getDate() + 1);
-    
+
     // Use actual current time for checkInTime (when attendance is being marked)
     const actualCheckInTime = new Date();
-    
-    console.log('Saving attendance for schedule date:', scheduleDateTime.toISOString(), 'actual time:', actualCheckInTime.toISOString(), 'schedule:', schedule.subject);
 
     // Check if already marked on this date using scheduleDate or checkInTime
     const existing = await prisma.attendance.findFirst({
-      where: { 
-        scheduleId, 
+      where: {
+        scheduleId,
         studentId,
         OR: [
           {
@@ -925,7 +943,7 @@ app.post('/api/attendance/manual', authenticate, adminOnly, async (req, res) => 
           },
           {
             scheduleDate: null,
-            checkInTime: {
+            date: {
               gte: dayStart,
               lt: dayEnd
             }
@@ -938,11 +956,11 @@ app.post('/api/attendance/manual', authenticate, adminOnly, async (req, res) => 
       // Update existing attendance with actual time
       const attendance = await prisma.attendance.update({
         where: { id: existing.id },
-        data: { 
-          status, 
-          notes, 
-          markedById: req.user.id,
-          checkInTime: actualCheckInTime, // Use actual current time
+        data: {
+          status,
+          notes,
+          markedBy: req.user.id,
+          date: actualCheckInTime, // Use actual current time
           scheduleDate: scheduleDateTime   // Update schedule date/time
         },
         include: {
@@ -964,8 +982,8 @@ app.post('/api/attendance/manual', authenticate, adminOnly, async (req, res) => 
         status,
         method: 'MANUAL',
         notes,
-        markedById: req.user.id,
-        checkInTime: actualCheckInTime, // Use actual current time
+        markedBy: req.user.id,
+        date: actualCheckInTime, // Use actual current time
         scheduleDate: scheduleDateTime  // Save the schedule date/time
       },
       include: {
@@ -1030,14 +1048,14 @@ app.post('/api/attendance/qr', authenticate, async (req, res) => {
       // Parse as local date to avoid timezone issues
       const specificDate = new Date(schedule.specificDate);
       targetDate = new Date(specificDate.getFullYear(), specificDate.getMonth(), specificDate.getDate());
-      
+
       // Check if today matches the specific date
       const today = new Date();
       const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
       if (todayDate.getTime() !== targetDate.getTime()) {
-        return res.status(400).json({ 
-          error: 'QR code can only be scanned on the scheduled date: ' + 
-                 targetDate.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+        return res.status(400).json({
+          error: 'QR code can only be scanned on the scheduled date: ' +
+            targetDate.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
         });
       }
     } else {
@@ -1045,16 +1063,16 @@ app.post('/api/attendance/qr', authenticate, async (req, res) => {
       const today = new Date();
       const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
       const todayDayName = dayNames[today.getDay()];
-      
+
       if (schedule.day !== todayDayName) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           error: `QR code untuk jadwal ${schedule.day} hanya bisa di-scan pada hari ${schedule.day}. Hari ini adalah ${todayDayName}.`
         });
       }
-      
+
       targetDate = new Date();
     }
-    
+
     // Extract schedule time for reference
     const [hours, minutes] = schedule.startTime.split(':');
     const scheduleDateTime = new Date(targetDate);
@@ -1079,7 +1097,7 @@ app.post('/api/attendance/qr', authenticate, async (req, res) => {
           },
           {
             scheduleDate: null,
-            checkInTime: {
+            date: {
               gte: startOfDay,
               lt: endOfDay
             }
@@ -1102,9 +1120,9 @@ app.post('/api/attendance/qr', authenticate, async (req, res) => {
         studentId: student.id,
         status: 'PRESENT',
         method: 'QR',
-        checkInTime: actualCheckInTime,
+        date: actualCheckInTime,
         scheduleDate: scheduleDateTime, // Save the schedule date/time
-        markedById: req.user.id
+        markedBy: student.userId // Student who scanned the QR code
       },
       include: {
         student: {
@@ -1155,40 +1173,43 @@ app.put('/api/attendance/:id', authenticate, adminOnly, async (req, res) => {
 // Today's statistics
 app.get('/api/stats/today', authenticate, adminOnly, async (req, res) => {
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Get today's date range in local timezone (Indonesia)
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
+
+    console.log('Dashboard stats - Today range:', today, 'to', tomorrow);
 
     const [totalStudents, totalSchedules, todayAttendance, presentCount, sickCount, permissionCount, absentCount] = await Promise.all([
       prisma.student.count(),
       prisma.schedule.count(),
       prisma.attendance.count({
         where: {
-          checkInTime: { gte: today, lt: tomorrow }
+          scheduleDate: { gte: today, lt: tomorrow }
         }
       }),
       prisma.attendance.count({
         where: {
-          checkInTime: { gte: today, lt: tomorrow },
+          scheduleDate: { gte: today, lt: tomorrow },
           status: 'PRESENT'
         }
       }),
       prisma.attendance.count({
         where: {
-          checkInTime: { gte: today, lt: tomorrow },
+          scheduleDate: { gte: today, lt: tomorrow },
           status: 'SICK'
         }
       }),
       prisma.attendance.count({
         where: {
-          checkInTime: { gte: today, lt: tomorrow },
+          scheduleDate: { gte: today, lt: tomorrow },
           status: 'PERMISSION'
         }
       }),
       prisma.attendance.count({
         where: {
-          checkInTime: { gte: today, lt: tomorrow },
+          scheduleDate: { gte: today, lt: tomorrow },
           status: 'ABSENT'
         }
       })
@@ -1214,7 +1235,7 @@ app.get('/api/stats/today', authenticate, adminOnly, async (req, res) => {
 // Get payments (Admin: all, Student: own only)
 app.get('/api/payments', authenticate, async (req, res) => {
   try {
-    const { status, studentId, startDate, endDate, page = 1, limit = 20 } = req.query;
+    const { status, studentId, method, startDate, endDate, page = 1, limit = 20 } = req.query;
 
     let where = {};
 
@@ -1236,10 +1257,14 @@ app.get('/api/payments', authenticate, async (req, res) => {
       where.status = status;
     }
 
+    if (method) {
+      where.method = method;
+    }
+
     if (startDate || endDate) {
-      where.paymentDate = {};
-      if (startDate) where.paymentDate.gte = new Date(startDate);
-      if (endDate) where.paymentDate.lte = new Date(endDate);
+      where.createdAt = {};
+      if (startDate) where.createdAt.gte = new Date(startDate);
+      if (endDate) where.createdAt.lte = new Date(endDate);
     }
 
     // Get total count for pagination
@@ -1254,11 +1279,13 @@ app.get('/api/payments', authenticate, async (req, res) => {
         payerName: true,
         paymentDate: true,
         description: true,
-        // proofImage: false, // Exclude for performance
+        method: true,
+        proofUrl: true,
         status: true,
         approvedBy: true,
-        approvedAt: true,
-        rejectionReason: true,
+        month: true,
+        year: true,
+        deadline: true,
         createdAt: true,
         updatedAt: true,
         student: {
@@ -1303,7 +1330,7 @@ app.get('/api/payments/:id/proof', authenticate, async (req, res) => {
       where: { id },
       select: {
         id: true,
-        proofImage: true,
+        proofUrl: true,
         studentId: true
       }
     });
@@ -1322,12 +1349,72 @@ app.get('/api/payments/:id/proof', authenticate, async (req, res) => {
       }
     }
 
-    res.json({ proofImage: payment.proofImage });
+    res.json({ proofImage: payment.proofUrl });
   } catch (error) {
     console.error('Get proof image error:', error);
     res.status(500).json({ error: 'Failed to fetch proof image' });
   }
 });
+
+// Helper function to upload to Cloudinary
+async function uploadToCloudinary(fileData, folder, resourceType = 'image') {
+  try {
+    // For PDFs (raw type), upload buffer directly
+    // For images, use base64 string
+    const result = await cloudinary.uploader.upload(fileData, {
+      folder: folder,
+      resource_type: resourceType,
+      access_mode: 'public', // Make files publicly accessible
+      // For PDFs, specify format
+      ...(resourceType === 'raw' && { format: 'pdf' })
+    });
+    return result.secure_url;
+  } catch (error) {
+    console.error('Cloudinary upload error:', error);
+    throw new Error('Failed to upload file to cloud storage');
+  }
+}
+
+// Helper function to delete from Cloudinary
+async function deleteFromCloudinary(url) {
+  try {
+    // Extract public_id from URL
+    const parts = url.split('/');
+    const filename = parts[parts.length - 1];
+    const publicId = parts.slice(-2).join('/').split('.')[0];
+    await cloudinary.uploader.destroy(publicId);
+    await cloudinary.uploader.destroy(publicId);
+  } catch (error) {
+    console.error('Cloudinary delete error:', error);
+  }
+}
+
+// Helper function to compress PDF
+async function compressPDF(buffer) {
+  try {
+    console.log('📦 Original PDF size:', (buffer.length / 1024 / 1024).toFixed(2), 'MB');
+
+    // Load the PDF
+    const pdfDoc = await PDFDocument.load(buffer);
+
+    // Save with compression
+    const compressedBytes = await pdfDoc.save({
+      useObjectStreams: true, // Enable for better compression
+      addDefaultPage: false,
+      objectsPerTick: 50
+    });
+
+    const compressedBuffer = Buffer.from(compressedBytes);
+    console.log('✅ Compressed PDF size:', (compressedBuffer.length / 1024 / 1024).toFixed(2), 'MB');
+    console.log('💾 Saved:', ((1 - compressedBuffer.length / buffer.length) * 100).toFixed(1), '%');
+
+    return compressedBuffer;
+  } catch (error) {
+    console.error('PDF compression error:', error);
+    // If compression fails, return original
+    return buffer;
+  }
+}
 
 // Create payment (Student only)
 app.post('/api/payments', authenticate, async (req, res) => {
@@ -1336,10 +1423,10 @@ app.post('/api/payments', authenticate, async (req, res) => {
       return res.status(403).json({ error: 'Only students can submit payments' });
     }
 
-    const { amount, payerName, paymentDate, description, proofImage } = req.body;
+    const { amount, payerName, paymentDate, description, method, proofImage } = req.body;
 
-    if (!amount || !payerName || !paymentDate || !description || !proofImage) {
-      return res.status(400).json({ error: 'All fields are required' });
+    if (!amount || !proofImage) {
+      return res.status(400).json({ error: 'Amount and proof image are required' });
     }
 
     // Get student
@@ -1351,14 +1438,18 @@ app.post('/api/payments', authenticate, async (req, res) => {
       return res.status(404).json({ error: 'Student profile not found' });
     }
 
+    // Upload proof image to Cloudinary
+    const proofUrl = await uploadToCloudinary(proofImage, 'payment_proofs');
+
     const payment = await prisma.payment.create({
       data: {
         studentId: student.id,
         amount: parseFloat(amount),
         payerName,
-        paymentDate: new Date(paymentDate),
+        paymentDate: paymentDate ? new Date(paymentDate) : null,
         description,
-        proofImage, // Base64 string
+        method, // Save the actual payment method selected
+        proofUrl: proofUrl, // Store Cloudinary URL
         status: 'PENDING'
       },
       include: {
@@ -1407,7 +1498,7 @@ Status: ⏳ *PENDING APPROVAL*
 // Create payment by admin (Admin only)
 app.post('/api/payments/admin', authenticate, adminOnly, upload.single('paymentProof'), async (req, res) => {
   try {
-    const { studentId, amount, description } = req.body;
+    const { studentId, amount, description, method } = req.body;
 
     if (!studentId || !amount || !description) {
       return res.status(400).json({ error: 'Student, amount, and description are required' });
@@ -1427,13 +1518,12 @@ app.post('/api/payments/admin', authenticate, adminOnly, upload.single('paymentP
       return res.status(404).json({ error: 'Student not found' });
     }
 
-    // Convert uploaded file to base64 if exists
-    let proofImage = null;
+    // Upload proof image to Cloudinary if exists
+    let proofUrl = null;
     if (req.file) {
-      proofImage = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
-    } else {
-      // Provide placeholder for admin-created payments without proof
-      proofImage = 'data:text/plain;base64,YWRtaW4tY3JlYXRlZA=='; // "admin-created" in base64
+      // Convert buffer to base64
+      const base64Image = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+      proofUrl = await uploadToCloudinary(base64Image, 'payment_proofs');
     }
 
     // Create payment with auto-approval
@@ -1449,7 +1539,8 @@ app.post('/api/payments/admin', authenticate, adminOnly, upload.single('paymentP
         payerName: student.user.name, // Use student name as payer
         paymentDate: new Date(), // Use current date
         description,
-        proofImage: proofImage,
+        method: method || null,
+        proofUrl: proofUrl,
         status: 'APPROVED', // Auto-approve admin-created payments
         approvedAt: new Date()
       },
@@ -1576,6 +1667,310 @@ app.delete('/api/payments/:id', authenticate, adminOnly, async (req, res) => {
   } catch (error) {
     console.error('Delete payment error:', error);
     res.status(500).json({ error: 'Failed to delete payment' });
+  }
+});
+
+
+
+// ==================== MATERIALS & SECTIONS ====================
+
+// Get sections and materials for a schedule
+app.get('/api/schedules/:scheduleId/sections', authenticate, async (req, res) => {
+  try {
+    const { scheduleId } = req.params;
+
+    const sections = await prisma.materialSection.findMany({
+      where: { scheduleId },
+      include: {
+        materials: {
+          orderBy: { createdAt: 'asc' },
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            fileName: true,
+            fileSize: true,
+            fileUrl: true, // Add Cloudinary URL
+            createdAt: true,
+            uploadedBy: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'asc' }
+    });
+
+    res.json(sections);
+  } catch (error) {
+    console.error('Error fetching sections:', error);
+    res.status(500).json({ error: 'Failed to fetch sections' });
+  }
+});
+
+// Create new section
+app.post('/api/schedules/:scheduleId/sections', authenticate, adminOnly, async (req, res) => {
+  try {
+    const { scheduleId } = req.params;
+    const { title } = req.body;
+
+    if (!title) {
+      return res.status(400).json({ error: 'Title is required' });
+    }
+
+    const section = await prisma.materialSection.create({
+      data: {
+        title,
+        scheduleId
+      }
+    });
+
+    res.status(201).json(section);
+  } catch (error) {
+    console.error('Error creating section:', error);
+    res.status(500).json({ error: 'Failed to create section' });
+  }
+});
+
+// Delete material (Admin only)
+app.delete('/api/materials/:id', authenticate, adminOnly, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    await prisma.material.delete({
+      where: { id }
+    });
+
+    res.json({ message: 'Material deleted successfully' });
+  } catch (error) {
+    console.error('Delete material error:', error);
+    res.status(500).json({ error: 'Failed to delete material' });
+  }
+});
+
+// Download material
+app.get('/api/materials/:id/download', authenticate, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const material = await prisma.material.findUnique({
+      where: { id },
+      select: {
+        fileName: true,
+        fileData: true
+      }
+    });
+
+    if (!material) {
+      return res.status(404).json({ error: 'Material not found' });
+    }
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${material.fileName}"`);
+    res.send(material.fileData);
+  } catch (error) {
+    console.error('Download material error:', error);
+    res.status(500).json({ error: 'Failed to download material' });
+  }
+});
+
+
+// Get all materials
+app.get('/api/materials', authenticate, async (req, res) => {
+  try {
+    const materials = await prisma.material.findMany({
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        title: true,
+        class: true,
+        subject: true,
+        description: true,
+        fileName: true,
+        fileSize: true,
+        createdAt: true,
+        uploadedBy: true,
+        uploader: {
+          select: { name: true }
+        }
+      }
+    });
+
+    res.json(materials);
+  } catch (error) {
+    console.error('Error fetching materials:', error);
+    res.status(500).json({ error: 'Failed to fetch materials' });
+  }
+});
+
+// Upload material to section (matches frontend endpoint)
+app.post('/api/sections/:sectionId/materials', (req, res, next) => {
+  console.log('🔵 POST /api/sections/:sectionId/materials HIT!');
+  console.log('Section ID from URL:', req.params.sectionId);
+  next();
+}, authenticate, uploadMaterial.single('file'), async (req, res) => {
+  try {
+    const { sectionId } = req.params;
+
+    console.log('📤 Material upload started');
+    console.log('Section ID:', sectionId);
+    console.log('File received:', req.file ? req.file.originalname : 'NO FILE');
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const { title, description } = req.body;
+    console.log('Title:', title);
+    console.log('Description:', description);
+
+    if (!title) {
+      return res.status(400).json({ error: 'Title is required' });
+    }
+
+    // Store PDF in database (simpler and works immediately)
+    console.log('💾 Compressing and saving PDF...');
+
+    // Compress PDF first
+    const compressedBuffer = await compressPDF(req.file.buffer);
+
+    const material = await prisma.material.create({
+      data: {
+        sectionId,
+        title,
+        description,
+        fileName: req.file.originalname,
+        fileSize: compressedBuffer.length, // Use compressed size
+        fileData: compressedBuffer, // Store compressed PDF
+        uploadedBy: req.user.id
+      },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        fileName: true,
+        fileSize: true,
+        createdAt: true,
+        uploadedBy: true
+      }
+    });
+
+    console.log('✅ Material saved successfully:', material.id);
+    res.status(201).json(material);
+  } catch (error) {
+    console.error('❌ Error uploading material:', error);
+    res.status(500).json({ error: 'Failed to upload material' });
+  }
+});
+
+// Upload material (legacy endpoint)
+app.post('/api/materials', authenticate, uploadMaterial.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const { title, class: className, subject, description } = req.body;
+
+    if (!title || !className || !subject) {
+      return res.status(400).json({ error: 'Title, class, and subject are required' });
+    }
+
+    // Convert buffer to base64 for Cloudinary upload
+    const base64PDF = `data:application/pdf;base64,${req.file.buffer.toString('base64')}`;
+
+    // Upload PDF to Cloudinary
+    const pdfUrl = await uploadToCloudinary(base64PDF, 'materials', 'raw');
+
+    const material = await prisma.material.create({
+      data: {
+        title,
+        class: className,
+        subject,
+        description,
+        fileName: req.file.originalname,
+        fileSize: req.file.size,
+        fileUrl: pdfUrl, // Store Cloudinary URL
+        uploadedBy: req.user.id
+      },
+      select: {
+        id: true,
+        title: true,
+        class: true,
+        subject: true,
+        description: true,
+        fileName: true,
+        fileSize: true,
+        createdAt: true,
+        uploadedBy: true
+      }
+    });
+
+    res.status(201).json(material);
+  } catch (error) {
+    console.error('Error uploading material:', error);
+    res.status(500).json({ error: 'Failed to upload material' });
+  }
+});
+
+// Delete material
+app.delete('/api/materials/:id', authenticate, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const material = await prisma.material.findUnique({
+      where: { id }
+    });
+
+    if (!material) {
+      return res.status(404).json({ error: 'Material not found' });
+    }
+
+    if (material.uploadedBy !== req.user.id && req.user.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Not authorized to delete this material' });
+    }
+
+    // Delete from Cloudinary if fileUrl exists
+    if (material.fileUrl) {
+      await deleteFromCloudinary(material.fileUrl);
+    }
+
+    await prisma.material.delete({
+      where: { id }
+    });
+
+    res.json({ message: 'Material deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting material:', error);
+    res.status(500).json({ error: 'Failed to delete material' });
+  }
+});
+
+// Download material
+app.get('/api/materials/:id/download', authenticate, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const material = await prisma.material.findUnique({
+      where: { id }
+    });
+
+    if (!material) {
+      return res.status(404).json({ error: 'Material not found' });
+    }
+
+    console.log('📥 Download request for:', material.fileName);
+    console.log('File URL:', material.fileUrl);
+
+    // Serve PDF from database
+    if (material.fileData) {
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${material.fileName}"`);
+      return res.send(material.fileData);
+    } else {
+      return res.status(404).json({ error: 'File not found' });
+    }
+  } catch (error) {
+    console.error('Error downloading material:', error);
+    res.status(500).json({ error: 'Failed to download material' });
   }
 });
 

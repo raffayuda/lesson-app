@@ -7,6 +7,7 @@
   import Login from "./pages/Login.svelte";
   import AdminDashboard from "./pages/admin/Dashboard.svelte";
   import AdminSchedules from "./pages/admin/Schedules.svelte";
+  import AdminScheduleMaterials from "./pages/admin/ScheduleMaterials.svelte";
   import AdminStudents from "./pages/admin/Students.svelte";
   import AdminHistory from "./pages/admin/History.svelte";
   import AdminPayments from "./pages/admin/Payments.svelte";
@@ -25,17 +26,27 @@
       ? {
           "/": AdminDashboard,
           "/schedules": AdminSchedules,
+          "/schedules/:id/materials": AdminScheduleMaterials,
           "/students": AdminStudents,
           "/history": AdminHistory,
           "/payments": AdminPayments,
+          "/payments": AdminPayments,
           "/profile": Profile,
         }
-      : {
-          "/": StudentScanQR,
-          "/attendance": StudentAttendance,
-          "/payment": StudentPayment,
-          "/profile": Profile,
-        }
+      : $auth.user.role === "STUDENT"
+        ? {
+            "/": StudentScanQR,
+            "/qr": StudentScanQR,
+            "/attendance": StudentAttendance,
+            "/schedules/:id/materials": AdminScheduleMaterials,
+            "/payment": StudentPayment,
+            "/profile": Profile,
+          }
+        : {
+            "/": Login,
+            "/login": Login,
+            "*": Login,
+          }
     : {
         "/": Login,
         "/login": Login,

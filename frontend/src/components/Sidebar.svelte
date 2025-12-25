@@ -66,7 +66,7 @@
             </div>
             <span class="text-xl font-bold text-white">Pay & Attend</span>
         </div>
-        
+
         <!-- Close button for mobile -->
         <button
             on:click={closeMobileMenu}

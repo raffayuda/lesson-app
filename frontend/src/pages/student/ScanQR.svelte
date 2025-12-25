@@ -176,7 +176,8 @@
                 class="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700"
             >
                 <i class="fas fa-info-circle mr-2"></i>
-                Pindai kode QR yang ditampilkan untuk jadwal Anda untuk mencatat kehadiran secara otomatis
+                Pindai kode QR yang ditampilkan untuk jadwal Anda untuk mencatat
+                kehadiran secara otomatis
             </div>
 
             {#if error}
@@ -233,10 +234,10 @@
                                     class="text-xs text-gray-500 dark:text-gray-400"
                                 >
                                     {attendance.schedule.class} • {new Date(
-                                        attendance.checkInTime,
+                                        attendance.date,
                                     ).toLocaleDateString()}
                                     {new Date(
-                                        attendance.checkInTime,
+                                        attendance.date,
                                     ).toLocaleTimeString()}
                                 </p>
                             </div>
