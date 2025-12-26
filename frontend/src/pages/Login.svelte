@@ -104,12 +104,7 @@
                 </button>
             </form>
 
-            <div class="mt-6 text-center text-sm text-gray-600">
-                <p>
-                    Default Admin: <strong>admin@attendance.com</strong> /
-                    <strong>admin123</strong>
-                </p>
-            </div>
+            
         </div>
     </div>
 </div>
