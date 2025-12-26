@@ -411,6 +411,7 @@
                             Tambahkan topik
                         </button>
                     {/if}
+                    {/if}
                 </div>
             {:else}
                 {#each sections as section (section.id)}
