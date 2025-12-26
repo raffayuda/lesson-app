@@ -17,8 +17,11 @@
 
     // Modal states
     let showAddSectionModal = false;
+    let showEditSectionModal = false;
     let showUploadModal = false;
     let newSectionTitle = "";
+    let editingSectionId = null;
+    let editingSectionTitle = "";
 
     // Upload state
     let selectedSectionId = null;
@@ -107,6 +110,75 @@
                 toastStore.success("Section created successfully");
             } else {
                 toastStore.error("Failed to create section");
+            }
+        } catch (error) {
+            toastStore.error("Error: " + error.message);
+        } finally {
+            processing = false;
+        }
+    }
+
+    function openEditSectionModal(section) {
+        editingSectionId = section.id;
+        editingSectionTitle = section.title;
+        showEditSectionModal = true;
+    }
+
+    async function updateSection() {
+        if (!editingSectionTitle.trim()) return;
+
+        processing = true;
+        processingMessage = "Updating section...";
+        try {
+            const response = await fetch(
+                `${API_URL}/sections/${editingSectionId}`,
+                {
+                    method: "PUT",
+                    headers: {
+                        Authorization: `Bearer ${auth.getToken()}`,
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ title: editingSectionTitle }),
+                },
+            );
+
+            if (response.ok) {
+                await fetchSections();
+                showEditSectionModal = false;
+                editingSectionId = null;
+                editingSectionTitle = "";
+                toastStore.success("Section updated successfully");
+            } else {
+                toastStore.error("Failed to update section");
+            }
+        } catch (error) {
+            toastStore.error("Error: " + error.message);
+        } finally {
+            processing = false;
+        }
+    }
+
+    async function deleteSection(sectionId, sectionTitle) {
+        if (
+            !confirm(
+                `Apakah anda yakin ingin menghapus section "${sectionTitle}"?\n\nSemua materi dalam section ini juga akan dihapus.`,
+            )
+        )
+            return;
+
+        processing = true;
+        processingMessage = "Deleting section...";
+        try {
+            const response = await fetch(`${API_URL}/sections/${sectionId}`, {
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${auth.getToken()}` },
+            });
+
+            if (response.ok) {
+                await fetchSections();
+                toastStore.success("Section deleted successfully");
+            } else {
+                toastStore.error("Failed to delete section");
             }
         } catch (error) {
             toastStore.error("Error: " + error.message);
@@ -347,13 +419,29 @@
                                 {section.title}
                             </h3>
                             {#if $auth.user?.role === "ADMIN"}
-                                <button
-                                    on:click={() => openUploadModal(section.id)}
-                                    class="text-sm px-3 py-1.5 bg-white dark:bg-gray-700 text-primary-600 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors flex items-center gap-2"
-                                >
-                                    <i class="fas fa-cloud-upload-alt"></i>
-                                    Upload
-                                </button>
+                                <div class="flex items-center gap-2">
+                                    <button
+                                        on:click={() => openEditSectionModal(section)}
+                                        class="text-sm px-3 py-1.5 bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors flex items-center gap-2"
+                                        title="Edit Section"
+                                    >
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button
+                                        on:click={() => deleteSection(section.id, section.title)}
+                                        class="text-sm px-3 py-1.5 bg-white dark:bg-gray-700 text-red-600 dark:text-red-400 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center gap-2"
+                                        title="Delete Section"
+                                    >
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                    <button
+                                        on:click={() => openUploadModal(section.id)}
+                                        class="text-sm px-3 py-1.5 bg-white dark:bg-gray-700 text-primary-600 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors flex items-center gap-2"
+                                    >
+                                        <i class="fas fa-cloud-upload-alt"></i>
+                                        Upload
+                                    </button>
+                                </div>
                             {/if}
                         </div>
 
@@ -496,6 +584,51 @@
                         class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                     >
                         Tambah Topik
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+{/if}
+
+<!-- Edit Section Modal -->
+{#if showEditSectionModal}
+    <div
+        class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn"
+    >
+        <div
+            class="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full p-6 shadow-2xl"
+        >
+            <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                Edit Topik / Section
+            </h3>
+            <div class="space-y-4">
+                <div>
+                    <label
+                        class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                        >Judul Topik</label
+                    >
+                    <input
+                        type="text"
+                        bind:value={editingSectionTitle}
+                        placeholder="e.g., Introduction to AI"
+                        class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-primary-500"
+                        autoFocus
+                    />
+                </div>
+                <div class="flex justify-end gap-3 mt-6">
+                    <button
+                        on:click={() => (showEditSectionModal = false)}
+                        class="px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg font-medium transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        on:click={updateSection}
+                        disabled={!editingSectionTitle.trim()}
+                        class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                        Update
                     </button>
                 </div>
             </div>

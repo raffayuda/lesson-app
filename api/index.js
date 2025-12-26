@@ -1756,6 +1756,45 @@ app.post('/api/schedules/:scheduleId/sections', authenticate, adminOnly, async (
   }
 });
 
+// Update section
+app.put('/api/sections/:id', authenticate, adminOnly, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title } = req.body;
+
+    if (!title) {
+      return res.status(400).json({ error: 'Title is required' });
+    }
+
+    const section = await prisma.materialSection.update({
+      where: { id },
+      data: { title }
+    });
+
+    res.json(section);
+  } catch (error) {
+    console.error('Error updating section:', error);
+    res.status(500).json({ error: 'Failed to update section' });
+  }
+});
+
+// Delete section
+app.delete('/api/sections/:id', authenticate, adminOnly, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Delete section and all its materials (cascade should handle this)
+    await prisma.materialSection.delete({
+      where: { id }
+    });
+
+    res.json({ message: 'Section deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting section:', error);
+    res.status(500).json({ error: 'Failed to delete section' });
+  }
+});
+
 // Delete material (Admin only)
 app.delete('/api/materials/:id', authenticate, adminOnly, async (req, res) => {
   try {

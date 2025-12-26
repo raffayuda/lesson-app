@@ -372,6 +372,24 @@
         showModal = true;
     }
 
+    function closeModal() {
+        showModal = false;
+        editingId = null;
+        searchQuery = "";
+        errorMessage = "";
+        assignedStudentIds = [];
+        form = {
+            subject: "",
+            class: "",
+            day: "Monday",
+            startTime: "",
+            endTime: "",
+            teacherName: "",
+            room: "",
+            specificDate: null,
+        };
+    }
+
     async function handleSubmit() {
         submitting = true;
         errorMessage = ""; // Clear previous errors
@@ -398,7 +416,7 @@
             });
 
             if (response.ok) {
-                showModal = false;
+                closeModal();
                 await fetchSchedules();
                 toastStore.success(
                     editingId
@@ -604,7 +622,6 @@
         const query = searchQuery.toLowerCase();
         return (
             s.user.name.toLowerCase().includes(query) ||
-            s.studentId.toLowerCase().includes(query) ||
             s.class.toLowerCase().includes(query)
         );
     });
@@ -1693,7 +1710,7 @@
                 >
                     <button
                         type="button"
-                        on:click={() => (showModal = false)}
+                        on:click={closeModal}
                         disabled={submitting}
                         class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                     >
