@@ -4,60 +4,245 @@ const { v4: uuidv4 } = require('uuid');
 
 const prisma = new PrismaClient();
 
-// Jadwal data dari gambar
+// Jadwal data dari gambar dengan kelas yang lebih spesifik
 const scheduleData = {
     'MONDAY': [ // Senin
-        { time: '08:00', students: ['Amanda', 'Hilda', 'Gibran', 'Rizieq', 'Zulfikar'] },
-        { time: '09:00', students: ['Nazwa', 'Reva', 'Rheva', 'Klarisa', 'Fitra'] },
-        { time: '10:00', students: ['Aqila', 'Daffi', 'Daffa', 'Putra', 'Irsyad'] },
-        { time: '12:30', students: ['Syifani', 'Samia', 'Talita', 'Azizah', 'Nova'] },
-        { time: '13:30', students: ['Zarky', 'Raffi4', 'Ayunda', 'Pema', 'Asyila'] },
-        { time: '14:30', students: ['Anin', 'Nabila', 'Helmy', 'Alby', 'Rere'] },
-        { time: '16:30', students: ['Angel', 'Icen', 'Ashilla', 'Carissa', 'Qonita'] },
-        { time: '15:30', students: ['Azka', 'Ifath', 'Rizqia', 'Key', 'Samudra'] }
+        { time: '08:00', class: '2', students: [
+            { name: 'Amanda', class: '2' },
+            { name: 'Hilda', class: '2' },
+            { name: 'Gibran', class: '2' },
+            { name: 'Rizieq', class: '2' },
+            { name: 'Zulfikar', class: '2' }
+        ]},
+        { time: '09:00', class: '5', students: [
+            { name: 'Nazwa', class: '5' },
+            { name: 'Reva', class: '5' },
+            { name: 'Rheva', class: '5' },
+            { name: 'Klarisa', class: '5' },
+            { name: 'Fitra', class: '5' }
+        ]},
+        { time: '10:00', class: '4', students: [
+            { name: 'Aqila', class: '4' },
+            { name: 'Daffi', class: '4' },
+            { name: 'Daffa', class: '4' },
+            { name: 'Putra', class: '4' },
+            { name: 'Irsyad', class: '3' } // Kelas berbeda
+        ]},
+        { time: '12:30', class: '5', students: [
+            { name: 'Syifani', class: '5' },
+            { name: 'Samia', class: '5' },
+            { name: 'Talita', class: '5' },
+            { name: 'Azizah', class: '5' },
+            { name: 'Nova', class: '5' }
+        ]},
+        { time: '13:30', class: '5', students: [
+            { name: 'Zarky', class: '5' },
+            { name: 'Raffi4', class: '5' },
+            { name: 'Ayunda', class: '5' },
+            { name: 'Pema', class: '5' },
+            { name: 'Asyila', class: '5' }
+        ]},
+        { time: '14:30', class: '5', students: [
+            { name: 'Anin', class: '5' },
+            { name: 'Nabila', class: '5' },
+            { name: 'Helmy', class: '5' },
+            { name: 'Alby', class: '5' },
+            { name: 'Rere', class: '5' }
+        ]},
+        { time: '15:30', class: '7', students: [
+            { name: 'Angel', class: '7' },
+            { name: 'Icen', class: '7' },
+            { name: 'Ashilla', class: '7' },
+            { name: 'Carissa', class: '7' },
+            { name: 'Qonita', class: '7' }
+        ]},
+        { time: '16:30', class: '6', students: [
+            { name: 'Azka', class: '6' },
+            { name: 'Ifath', class: '6' },
+            { name: 'Rizqia', class: '6' },
+            { name: 'Key', class: '6' },
+            { name: 'Samudra', class: '6' }
+        ]}
     ],
     'THURSDAY': [ // Kamis (sama dengan Senin)
-        { time: '08:00', students: ['Amanda', 'Hilda', 'Gibran', 'Rizieq', 'Zulfikar'] },
-        { time: '09:00', students: ['Nazwa', 'Reva', 'Rheva', 'Klarisa', 'Fitra'] },
-        { time: '10:00', students: ['Aqila', 'Daffi', 'Daffa', 'Putra', 'Irsyad'] },
-        { time: '12:30', students: ['Syifani', 'Samia', 'Talita', 'Azizah', 'Nova'] },
-        { time: '13:30', students: ['Zarky', 'Raffi4', 'Ayunda', 'Pema', 'Asyila'] },
-        { time: '14:30', students: ['Anin', 'Nabila', 'Helmy', 'Alby', 'Rere'] },
-        { time: '16:30', students: ['Angel', 'Icen', 'Ashilla', 'Carissa', 'Qonita'] },
-        { time: '15:30', students: ['Azka', 'Ifath', 'Rizqia', 'Key', 'Samudra'] }
+        { time: '08:00', class: '2', students: [
+            { name: 'Amanda', class: '2' },
+            { name: 'Hilda', class: '2' },
+            { name: 'Gibran', class: '2' },
+            { name: 'Rizieq', class: '2' },
+            { name: 'Zulfikar', class: '2' }
+        ]},
+        { time: '09:00', class: '5', students: [
+            { name: 'Nazwa', class: '5' },
+            { name: 'Reva', class: '5' },
+            { name: 'Rheva', class: '5' },
+            { name: 'Klarisa', class: '5' },
+            { name: 'Fitra', class: '5' }
+        ]},
+        { time: '10:00', class: '4', students: [
+            { name: 'Aqila', class: '4' },
+            { name: 'Daffi', class: '4' },
+            { name: 'Daffa', class: '4' },
+            { name: 'Putra', class: '4' },
+            { name: 'Irsyad', class: '3' }
+        ]},
+        { time: '12:30', class: '5', students: [
+            { name: 'Syifani', class: '5' },
+            { name: 'Samia', class: '5' },
+            { name: 'Talita', class: '5' },
+            { name: 'Azizah', class: '5' },
+            { name: 'Nova', class: '5' }
+        ]},
+        { time: '13:30', class: '5', students: [
+            { name: 'Zarky', class: '5' },
+            { name: 'Raffi4', class: '5' },
+            { name: 'Ayunda', class: '5' },
+            { name: 'Pema', class: '5' },
+            { name: 'Asyila', class: '5' }
+        ]},
+        { time: '14:30', class: '5', students: [
+            { name: 'Anin', class: '5' },
+            { name: 'Nabila', class: '5' },
+            { name: 'Helmy', class: '5' },
+            { name: 'Alby', class: '5' },
+            { name: 'Rere', class: '5' }
+        ]},
+        { time: '15:30', class: '7', students: [
+            { name: 'Angel', class: '7' },
+            { name: 'Icen', class: '7' },
+            { name: 'Ashilla', class: '7' },
+            { name: 'Carissa', class: '7' },
+            { name: 'Qonita', class: '7' }
+        ]},
+        { time: '16:30', class: '6', students: [
+            { name: 'Azka', class: '6' },
+            { name: 'Ifath', class: '6' },
+            { name: 'Rizqia', class: '6' },
+            { name: 'Key', class: '6' },
+            { name: 'Samudra', class: '6' }
+        ]}
     ],
     'TUESDAY': [ // Selasa
-        { time: '08:00', students: ['Azka', 'Sauqi', 'Izyan', 'Bagas', 'Faqih'] },
-        { time: '09:00', students: ['Rasya', 'Ubai', 'Adzkia', 'Dinda', 'Clara'] },
-        { time: '10:00', students: ['Queen', 'Sabiya', 'Arjuna', 'Adiva'] },
-        { time: '12:30', students: ['Satria', 'Rasyad', 'Mahes', 'Rivaldi', 'Barrie'] },
-        { time: '13:30', students: ['Zikri', 'Robi', 'Najdan', 'Nizar', 'Reiner'] },
-        { time: '16:30', students: ['Valiqa', 'Obit', 'Mey', 'Dila', 'Rubby'] },
-        { time: '14:30', students: ['Bintang', 'Wahid', 'Hilmiy', 'Ahza', 'Gilang'] },
-        { time: '15:30', students: ['Abid', 'Keanu', 'Athar', 'Arvin', 'Sheina'] }
+        { time: '08:00', class: '5', students: [
+            { name: 'Azka', class: '5' },
+            { name: 'Sauqi', class: '5' },
+            { name: 'Izyan', class: '5' },
+            { name: 'Bagas', class: '5' },
+            { name: 'Faqih', class: '4' } // Kelas berbeda
+        ]},
+        { time: '09:00', class: '4', students: [
+            { name: 'Rasya', class: '4' },
+            { name: 'Ubai', class: '4' },
+            { name: 'Adzkia', class: '4' },
+            { name: 'Dinda', class: '4' },
+            { name: 'Clara', class: '4' }
+        ]},
+        { time: '10:00', class: '2', students: [
+            { name: 'Queen', class: '2' },
+            { name: 'Sabiya', class: '2' },
+            { name: 'Arjuna', class: '2' },
+            { name: 'Mahes', class: '2' }
+        ]},
+        { time: '12:30', class: '6', students: [
+            { name: 'Satria', class: '6' },
+            { name: 'Rasyad', class: '6' },
+            { name: 'Mahes', class: '6' },
+            { name: 'Rivaldi', class: '6' },
+            { name: 'Barrie', class: '6' }
+        ]},
+        { time: '13:30', class: '6', students: [
+            { name: 'Zikri', class: '6' },
+            { name: 'Robi', class: '6' },
+            { name: 'Najdan', class: '6' },
+            { name: 'Nizar', class: '6' },
+            { name: 'Reiner', class: '6' }
+        ]},
+        { time: '14:30', class: '8', students: [
+            { name: 'Valiqa', class: '8' },
+            { name: 'Obit', class: '8' },
+            { name: 'Mey', class: '8' },
+            { name: 'Dila', class: '8' },
+            { name: 'Rubby', class: '8' }
+        ]},
+        { time: '15:30', class: '9', students: [
+            { name: 'Bintang', class: '9' },
+            { name: 'Wahid', class: '9' },
+            { name: 'Hilmiy', class: '9' },
+            { name: 'Ahza', class: '9' },
+            { name: 'Gilang', class: '9' }
+        ]},
+        { time: '15:30', class: '4', students: [
+            { name: 'Abid', class: '4' },
+            { name: 'Keanu', class: '4' },
+            { name: 'Athar', class: '4' },
+            { name: 'Arvin', class: '4' },
+            { name: 'Sheina', class: '4' }
+        ]}
     ],
     'FRIDAY': [ // Jumat (sama dengan Selasa)
-        { time: '08:00', students: ['Azka', 'Sauqi', 'Izyan', 'Bagas', 'Faqih'] },
-        { time: '09:00', students: ['Rasya', 'Ubai', 'Adzkia', 'Dinda', 'Clara'] },
-        { time: '10:00', students: ['Queen', 'Sabiya', 'Arjuna', 'Adiva'] },
-        { time: '12:30', students: ['Satria', 'Rasyad', 'Mahes', 'Rivaldi', 'Barrie'] },
-        { time: '13:30', students: ['Zikri', 'Robi', 'Najdan', 'Nizar', 'Reiner'] },
-        { time: '16:30', students: ['Valiqa', 'Obit', 'Mey', 'Dila', 'Rubby'] },
-        { time: '14:30', students: ['Bintang', 'Wahid', 'Hilmiy', 'Ahza', 'Gilang'] },
-        { time: '15:30', students: ['Abid', 'Keanu', 'Athar', 'Arvin', 'Sheina'] }
+        { time: '08:00', class: '5', students: [
+            { name: 'Azka', class: '5' },
+            { name: 'Sauqi', class: '5' },
+            { name: 'Izyan', class: '5' },
+            { name: 'Bagas', class: '5' },
+            { name: 'Faqih', class: '4' }
+        ]},
+        { time: '09:00', class: '4', students: [
+            { name: 'Rasya', class: '4' },
+            { name: 'Ubai', class: '4' },
+            { name: 'Adzkia', class: '4' },
+            { name: 'Dinda', class: '4' },
+            { name: 'Clara', class: '4' }
+        ]},
+        { time: '10:00', class: '2', students: [
+            { name: 'Queen', class: '2' },
+            { name: 'Sabiya', class: '2' },
+            { name: 'Arjuna', class: '2' },
+            { name: 'Mahes', class: '2' }
+        ]},
+        { time: '12:30', class: '6', students: [
+            { name: 'Satria', class: '6' },
+            { name: 'Rasyad', class: '6' },
+            { name: 'Mahes', class: '6' },
+            { name: 'Rivaldi', class: '6' },
+            { name: 'Barrie', class: '6' }
+        ]},
+        { time: '13:30', class: '6', students: [
+            { name: 'Zikri', class: '6' },
+            { name: 'Robi', class: '6' },
+            { name: 'Najdan', class: '6' },
+            { name: 'Nizar', class: '6' },
+            { name: 'Reiner', class: '6' }
+        ]},
+        { time: '14:30', class: '8', students: [
+            { name: 'Valiqa', class: '8' },
+            { name: 'Obit', class: '8' },
+            { name: 'Mey', class: '8' },
+            { name: 'Dila', class: '8' },
+            { name: 'Rubby', class: '8' }
+        ]},
+        { time: '15:30', class: '9', students: [
+            { name: 'Bintang', class: '9' },
+            { name: 'Wahid', class: '9' },
+            { name: 'Hilmiy', class: '9' },
+            { name: 'Ahza', class: '9' },
+            { name: 'Gilang', class: '9' }
+        ]},
+        { time: '15:30', class: '4', students: [
+            { name: 'Abid', class: '4' },
+            { name: 'Keanu', class: '4' },
+            { name: 'Athar', class: '4' },
+            { name: 'Arvin', class: '4' },
+            { name: 'Sheina', class: '4' }
+        ]}
     ]
 };
 
-// Fungsi untuk menghitung endTime (1.5 jam setelah startTime)
+// Fungsi untuk menghitung endTime (1 jam setelah startTime)
 function calculateEndTime(startTime) {
     const [hours, minutes] = startTime.split(':').map(Number);
     const endHours = hours + 1;
-    const endMinutes = minutes + 30;
-    
-    if (endMinutes >= 60) {
-        return `${String(endHours + 1).padStart(2, '0')}:${String(endMinutes - 60).padStart(2, '0')}`;
-    }
-    return `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`;
+    return `${String(endHours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 }
 
 async function main() {
@@ -80,22 +265,24 @@ async function main() {
     console.log('✅ Admin user created:', admin.email);
     console.log('   Password: admin123');
 
-    // Kumpulkan semua nama siswa unik
-    const allStudents = new Set();
+    // Kumpulkan semua nama siswa unik dengan kelasnya
+    const allStudentsMap = new Map(); // name -> class
     Object.values(scheduleData).forEach(daySchedules => {
         daySchedules.forEach(slot => {
-            slot.students.forEach(name => allStudents.add(name));
+            slot.students.forEach(student => {
+                // Gunakan kelas dari student, bukan dari slot
+                allStudentsMap.set(student.name, student.class);
+            });
         });
     });
 
-    console.log(`\n📚 Creating ${allStudents.size} students...`);
+    console.log(`\n📚 Creating ${allStudentsMap.size} students...`);
 
     // Buat user dan student untuk setiap siswa
-    const studentMap = {};
+    const studentMap = {}; // name -> student record
     const defaultPassword = await bcrypt.hash('student123', 10);
     
-    let studentCounter = 1;
-    for (const studentName of allStudents) {
+    for (const [studentName, studentClass] of allStudentsMap.entries()) {
         const email = `${studentName.toLowerCase().replace(/\s+/g, '')}@student.com`;
         
         const user = await prisma.user.upsert({
@@ -114,13 +301,12 @@ async function main() {
             update: {},
             create: {
                 userId: user.id,
-                class: '-'
+                class: studentClass
             }
         });
 
-        studentMap[studentName] = student.id;
-        console.log(`   ✓ ${studentName} (${email})`);
-        studentCounter++;
+        studentMap[studentName] = student;
+        console.log(`   ✓ ${studentName} (${email}) - Kelas ${studentClass}`);
     }
 
     console.log('\n📅 Creating schedules...');
@@ -133,11 +319,11 @@ async function main() {
             const endTime = calculateEndTime(slot.time);
             const qrCode = uuidv4();
             
-            // Buat schedule
+            // Buat schedule dengan kelas dari slot
             const schedule = await prisma.schedule.create({
                 data: {
-                    subject: `Kelas ${slot.time}`,
-                    class: 'Campuran',
+                    subject: `Kelas ${slot.class}`,
+                    class: slot.class,
                     day: day,
                     startTime: slot.time,
                     endTime: endTime,
@@ -148,16 +334,19 @@ async function main() {
             });
 
             // Hubungkan siswa dengan jadwal
-            for (const studentName of slot.students) {
-                await prisma.scheduleStudent.create({
-                    data: {
-                        scheduleId: schedule.id,
-                        studentId: studentMap[studentName]
-                    }
-                });
+            for (const studentInfo of slot.students) {
+                const student = studentMap[studentInfo.name];
+                if (student) {
+                    await prisma.scheduleStudent.create({
+                        data: {
+                            scheduleId: schedule.id,
+                            studentId: student.id
+                        }
+                    });
+                }
             }
 
-            console.log(`      ✓ ${slot.time} - ${endTime} (${slot.students.length} siswa)`);
+            console.log(`      ✓ ${slot.time} - ${endTime} | Kelas ${slot.class} (${slot.students.length} siswa)`);
         }
     }
 

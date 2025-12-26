@@ -384,6 +384,17 @@
                         <i class="fas fa-folder-open text-3xl text-gray-400"
                         ></i>
                     </div>
+                    <!-- jika user maka muncul teks belum ada topik -->
+                    {#if $auth.user?.role !== "ADMIN"}
+                        <h3
+                            class="text-lg font-medium text-gray-900 dark:text-white mb-1"
+                        >
+                            Belum ada topik tersedia
+                        </h3>
+                        <p class="text-gray-500 dark:text-gray-400 mb-4">
+                            Hubungi administrator untuk menambahkan topik
+                        </p>
+                    {:else}
                     <h3
                         class="text-lg font-medium text-gray-900 dark:text-white mb-1"
                     >
