@@ -129,13 +129,28 @@
 
     async function submitAddPayment() {
         // Trim and validate
-        const studentId = addPaymentForm.studentId?.trim();
+        const studentId = addPaymentForm.studentId?.trim ? addPaymentForm.studentId.trim() : addPaymentForm.studentId;
         const amount = parseFloat(addPaymentForm.amount);
-        const description = addPaymentForm.description?.trim();
-        const method = addPaymentForm.method?.trim();
+        const description = addPaymentForm.description?.trim ? addPaymentForm.description.trim() : addPaymentForm.description;
+        const method = addPaymentForm.method?.trim ? addPaymentForm.method.trim() : addPaymentForm.method;
 
-        if (!studentId || !amount || amount <= 0 || !description || !method) {
-            toastStore.warning("Siswa, jumlah, metode, dan deskripsi wajib diisi");
+        console.log("Submit Payment Data:", { studentId, amount, description, method });
+
+        // Validation
+        if (!studentId) {
+            toastStore.warning("Silakan pilih siswa terlebih dahulu");
+            return;
+        }
+        if (!amount || amount <= 0) {
+            toastStore.warning("Jumlah pembayaran harus lebih dari 0");
+            return;
+        }
+        if (!description) {
+            toastStore.warning("Deskripsi pembayaran wajib diisi");
+            return;
+        }
+        if (!method) {
+            toastStore.warning("Metode pembayaran wajib dipilih");
             return;
         }
 
@@ -150,6 +165,11 @@
                 formData.append("paymentProof", addPaymentForm.paymentProof);
             }
 
+            console.log("FormData entries:");
+            for (let pair of formData.entries()) {
+                console.log(pair[0] + ': ' + pair[1]);
+            }
+
             const response = await fetch(`${API_URL}/payments/admin`, {
                 method: "POST",
                 headers: {
@@ -157,6 +177,9 @@
                 },
                 body: formData,
             });
+
+            const responseData = await response.json();
+            console.log("Response:", response.status, responseData);
 
             if (response.ok) {
                 toastStore.success("Pembayaran berhasil ditambahkan!");
@@ -169,12 +192,16 @@
                     paymentProof: null,
                 };
                 previewImage = null;
+                selectedStudentName = "";
+                studentSearchQuery = "";
+                studentFilterClass = "";
                 await fetchData();
             } else {
-                const data = await response.json();
-                toastStore.error(data.error || "Gagal menambahkan pembayaran");
+                console.error("Payment submission error response:", response.status, responseData);
+                toastStore.error(responseData.error || "Gagal menambahkan pembayaran");
             }
         } catch (error) {
+            console.error("Payment submission catch error:", error);
             toastStore.error("Error: " + error.message);
         } finally {
             addPaymentSubmitting = false;
@@ -1240,6 +1267,11 @@
                                     <option value={cls}>Kelas {cls}</option>
                                 {/each}
                             </select>
+
+                            <p class="text-xs text-gray-500 dark:text-gray-400">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                Pilih siswa dari daftar yang muncul
+                            </p>
                         </div>
 
                         <!-- Dropdown List -->
@@ -1400,8 +1432,8 @@
                     </button>
                     <button
                         type="submit"
-                        class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg disabled:opacity-50"
-                        disabled={addPaymentSubmitting}
+                        class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={addPaymentSubmitting || !addPaymentForm.studentId}
                     >
                         {#if addPaymentSubmitting}
                             <i class="fas fa-spinner fa-spin mr-2"></i>
