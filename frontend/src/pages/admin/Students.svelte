@@ -34,6 +34,10 @@
     let filterClass = "";
     let searchQuery = "";
 
+    // Sorting
+    let sortColumn = "";
+    let sortDirection = "asc"; // 'asc' or 'desc'
+
     let form = {
         name: "",
         email: "",
@@ -81,6 +85,38 @@
             );
         }
 
+        // Apply sorting
+        if (sortColumn) {
+            filtered.sort((a, b) => {
+                let valueA, valueB;
+
+                switch (sortColumn) {
+                    case "name":
+                        valueA = a.user.name.toLowerCase();
+                        valueB = b.user.name.toLowerCase();
+                        break;
+                    case "email":
+                        valueA = a.user.email.toLowerCase();
+                        valueB = b.user.email.toLowerCase();
+                        break;
+                    case "class":
+                        valueA = parseInt(a.class) || 0;
+                        valueB = parseInt(b.class) || 0;
+                        break;
+                    case "attendance":
+                        valueA = a._count?.attendances || 0;
+                        valueB = b._count?.attendances || 0;
+                        break;
+                    default:
+                        return 0;
+                }
+
+                if (valueA < valueB) return sortDirection === "asc" ? -1 : 1;
+                if (valueA > valueB) return sortDirection === "asc" ? 1 : -1;
+                return 0;
+            });
+        }
+
         // Calculate pagination
         totalPages = Math.ceil(filtered.length / limit);
         const start = (currentPage - 1) * limit;
@@ -91,7 +127,21 @@
     function clearFilters() {
         filterClass = "";
         searchQuery = "";
+        sortColumn = "";
+        sortDirection = "asc";
         currentPage = 1;
+        applyFiltersAndPagination();
+    }
+
+    function sortBy(column) {
+        if (sortColumn === column) {
+            // Toggle direction if clicking the same column
+            sortDirection = sortDirection === "asc" ? "desc" : "asc";
+        } else {
+            // New column, default to ascending
+            sortColumn = column;
+            sortDirection = "asc";
+        }
         applyFiltersAndPagination();
     }
 
@@ -328,21 +378,65 @@
                                 >ID</th
                             >
                             <th
-                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase"
-                                >Nama</th
+                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors select-none"
+                                on:click={() => sortBy("name")}
                             >
+                                <div class="flex items-center gap-2">
+                                    <span>Nama</span>
+                                    {#if sortColumn === "name"}
+                                        <i
+                                            class="fas fa-sort-{sortDirection === 'asc' ? 'up' : 'down'} text-primary-600"
+                                        ></i>
+                                    {:else}
+                                        <i class="fas fa-sort text-gray-400"></i>
+                                    {/if}
+                                </div>
+                            </th>
                             <th
-                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase"
-                                >Email</th
+                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors select-none"
+                                on:click={() => sortBy("email")}
                             >
+                                <div class="flex items-center gap-2">
+                                    <span>Email</span>
+                                    {#if sortColumn === "email"}
+                                        <i
+                                            class="fas fa-sort-{sortDirection === 'asc' ? 'up' : 'down'} text-primary-600"
+                                        ></i>
+                                    {:else}
+                                        <i class="fas fa-sort text-gray-400"></i>
+                                    {/if}
+                                </div>
+                            </th>
                             <th
-                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase"
-                                >Kelas</th
+                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors select-none"
+                                on:click={() => sortBy("class")}
                             >
+                                <div class="flex items-center gap-2">
+                                    <span>Kelas</span>
+                                    {#if sortColumn === "class"}
+                                        <i
+                                            class="fas fa-sort-{sortDirection === 'asc' ? 'up' : 'down'} text-primary-600"
+                                        ></i>
+                                    {:else}
+                                        <i class="fas fa-sort text-gray-400"></i>
+                                    {/if}
+                                </div>
+                            </th>
                             <th
-                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase"
-                                >Kehadiran</th
+                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors select-none"
+                                on:click={() => sortBy("attendance")}
                             >
+                                <div class="flex items-center gap-2">
+                                    <span>Kehadiran</span>
+                                    {#if sortColumn === "attendance"}
+                                        <i
+                                            class="fas fa-sort-{sortDirection === 'asc' ? 'up' : 'down'} text-primary-600"
+                                        ></i>
+                                    {:else}
+                                        <i class="fas fa-sort text-gray-400"></i>
+                                    {/if}
+                                </div>
+                            </th>
                             <th
                                 class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase"
                                 >Aksi</th
