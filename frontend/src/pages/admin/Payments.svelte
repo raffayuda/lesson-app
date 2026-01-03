@@ -56,6 +56,45 @@
     let addPaymentSubmitting = false;
     let previewImage = null;
 
+    // Student search and filter
+    let studentSearchQuery = "";
+    let studentFilterClass = "";
+    let showStudentDropdown = false;
+    let filteredStudents = [];
+    let selectedStudentName = "";
+
+    // Reactive filtered students
+    $: {
+        filteredStudents = students.filter((student) => {
+            const matchesSearch = !studentSearchQuery || 
+                student.user.name.toLowerCase().includes(studentSearchQuery.toLowerCase()) ||
+                student.user.email.toLowerCase().includes(studentSearchQuery.toLowerCase());
+            const matchesClass = !studentFilterClass || student.class === studentFilterClass;
+            return matchesSearch && matchesClass;
+        });
+    }
+
+    // Get unique classes from students
+    $: studentClasses = [...new Set(students.map(s => s.class))].sort((a, b) => {
+        const numA = parseInt(a) || 0;
+        const numB = parseInt(b) || 0;
+        return numA - numB;
+    });
+
+    function selectStudent(student) {
+        addPaymentForm.studentId = student.id;
+        selectedStudentName = `${student.user.name} - Kelas ${student.class}`;
+        showStudentDropdown = false;
+        studentSearchQuery = "";
+    }
+
+    function clearStudentSelection() {
+        addPaymentForm.studentId = "";
+        selectedStudentName = "";
+        studentSearchQuery = "";
+        studentFilterClass = "";
+    }
+
     onMount(() => {
         fetchData();
     });
@@ -69,6 +108,10 @@
             paymentProof: null,
         };
         previewImage = null;
+        selectedStudentName = "";
+        studentSearchQuery = "";
+        studentFilterClass = "";
+        showStudentDropdown = false;
         showAddPaymentModal = true;
     }
 
@@ -1144,9 +1187,14 @@
                 studentId: "",
                 amount: "",
                 description: "",
+                method: "",
                 paymentProof: null,
             };
             previewImage = null;
+            selectedStudentName = "";
+            studentSearchQuery = "";
+            studentFilterClass = "";
+            showStudentDropdown = false;
         }}
     >
         <div
@@ -1160,23 +1208,88 @@
 
             <form on:submit|preventDefault={submitAddPayment} class="space-y-4">
                 <!-- Student Selection -->
-                <div>
+                <div class="relative">
                     <label
                         class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                         >Siswa <span class="text-red-500">*</span></label
                     >
-                    <select
-                        bind:value={addPaymentForm.studentId}
-                        required
-                        class="w-full px-3 py-2 border dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white"
-                    >
-                        <option value="">Pilih Siswa</option>
-                        {#each students as student}
-                            <option value={student.id}
-                                >{student.user.name}</option
+                    
+                    <!-- Selected Student Display or Search Input -->
+                    {#if !addPaymentForm.studentId}
+                        <div class="space-y-2">
+                            <!-- Search Input -->
+                            <div class="relative">
+                                <input
+                                    type="text"
+                                    bind:value={studentSearchQuery}
+                                    on:focus={() => showStudentDropdown = true}
+                                    placeholder="Cari siswa berdasarkan nama atau email..."
+                                    class="w-full px-3 py-2 pr-10 border dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white"
+                                />
+                                <i class="fas fa-search absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                            </div>
+
+                            <!-- Class Filter -->
+                            <select
+                                bind:value={studentFilterClass}
+                                on:focus={() => showStudentDropdown = true}
+                                class="w-full px-3 py-2 border dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 text-gray-900 dark:text-white text-sm"
                             >
-                        {/each}
-                    </select>
+                                <option value="">Semua Kelas</option>
+                                {#each studentClasses as cls}
+                                    <option value={cls}>Kelas {cls}</option>
+                                {/each}
+                            </select>
+                        </div>
+
+                        <!-- Dropdown List -->
+                        {#if showStudentDropdown}
+                            <div class="absolute z-50 w-full mt-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                                {#if filteredStudents.length === 0}
+                                    <div class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 text-center">
+                                        <i class="fas fa-inbox mb-1"></i>
+                                        <p>Tidak ada siswa ditemukan</p>
+                                    </div>
+                                {:else}
+                                    {#each filteredStudents as student}
+                                        <button
+                                            type="button"
+                                            on:click={() => selectStudent(student)}
+                                            class="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors flex items-center justify-between group"
+                                        >
+                                            <span class="text-gray-900 dark:text-white">
+                                                {student.user.name}
+                                            </span>
+                                            <span class="text-xs px-2 py-1 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
+                                                Kelas {student.class}
+                                            </span>
+                                        </button>
+                                    {/each}
+                                {/if}
+                            </div>
+                        {/if}
+                    {:else}
+                        <!-- Selected Student Display -->
+                        <div class="flex items-center gap-2 w-full px-3 py-2 border dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white">
+                            <span class="flex-1">{selectedStudentName}</span>
+                            <button
+                                type="button"
+                                on:click={clearStudentSelection}
+                                class="text-red-500 hover:text-red-700 transition-colors"
+                                title="Hapus pilihan"
+                            >
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    {/if}
+
+                    <!-- Click outside to close dropdown -->
+                    {#if showStudentDropdown}
+                        <div 
+                            class="fixed inset-0 z-40" 
+                            on:click={() => showStudentDropdown = false}
+                        ></div>
+                    {/if}
                 </div>
 
                 <!-- Amount -->
@@ -1275,6 +1388,10 @@
                                 paymentProof: null,
                             };
                             previewImage = null;
+                            selectedStudentName = "";
+                            studentSearchQuery = "";
+                            studentFilterClass = "";
+                            showStudentDropdown = false;
                         }}
                         class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg"
                         disabled={addPaymentSubmitting}
