@@ -1,6 +1,6 @@
 import { writable } from 'svelte/store';
 
-const API_URL = import.meta.env.PROD ? '/api' : 'http://10.166.243.254:5173/api';
+const API_URL = import.meta.env.PROD ? '/api' : 'http://localhost:5173/api';
 
 // Session timeout: 1 hour (in milliseconds)
 const SESSION_TIMEOUT = 60 * 60  * 1000; // 1 hour

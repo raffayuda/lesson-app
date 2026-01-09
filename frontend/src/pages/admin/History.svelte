@@ -17,6 +17,25 @@
     let filterStatus = "";
     let filterMethod = "";
 
+    // Search states
+    let studentSearchQuery = "";
+    let scheduleSearchQuery = "";
+    let showStudentDropdown = false;
+    let showScheduleDropdown = false;
+
+    // Filtered lists
+    $: filteredStudents = students.filter(student => 
+        !studentSearchQuery || 
+        student.user?.name?.toLowerCase().includes(studentSearchQuery.toLowerCase()) ||
+        student.class?.toString().includes(studentSearchQuery)
+    );
+
+    $: filteredSchedules = schedules.filter(schedule => 
+        !scheduleSearchQuery || 
+        schedule.subject?.toLowerCase().includes(scheduleSearchQuery.toLowerCase()) ||
+        schedule.class?.toString().includes(scheduleSearchQuery)
+    );
+
     // Pagination
     let currentPage = 1;
     let itemsPerPage = 10;
@@ -86,6 +105,10 @@
         filterStudent = "";
         filterStatus = "";
         filterMethod = "";
+        studentSearchQuery = "";
+        scheduleSearchQuery = "";
+        showStudentDropdown = false;
+        showScheduleDropdown = false;
         currentPage = 1; // Reset to first page
         fetchData();
     }
@@ -408,38 +431,115 @@
                     </div>
                 </div>
 
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1"
+                <div class="relative">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                         >Jadwal</label
                     >
-                    <select
-                        bind:value={filterSchedule}
-                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    >
-                        <option value="">Semua Jadwal</option>
-                        {#each schedules as schedule}
-                            <option value={schedule.id}
-                                >{schedule.subject} - {schedule.class}</option
+                    <div class="relative">
+                        <input
+                            type="text"
+                            bind:value={scheduleSearchQuery}
+                            on:focus={() => showScheduleDropdown = true}
+                            placeholder="Cari jadwal..."
+                            class="w-full px-3 py-2 pr-8 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        />
+                        <i class="fas fa-search absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs"></i>
+                    </div>
+
+                    {#if showScheduleDropdown}
+                        <div class="absolute z-50 w-full mt-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                            <button
+                                type="button"
+                                on:click={() => {
+                                    filterSchedule = "";
+                                    scheduleSearchQuery = "";
+                                    showScheduleDropdown = false;
+                                }}
+                                class="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300"
                             >
-                        {/each}
-                    </select>
+                                Semua Jadwal
+                            </button>
+                            {#each filteredSchedules as schedule}
+                                <button
+                                    type="button"
+                                    on:click={() => {
+                                        filterSchedule = schedule.id;
+                                        scheduleSearchQuery = `${schedule.subject} - Kelas ${schedule.class}`;
+                                        showScheduleDropdown = false;
+                                    }}
+                                    class="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-900 dark:text-white"
+                                >
+                                    {schedule.subject} - Kelas {schedule.class}
+                                </button>
+                            {/each}
+                            {#if filteredSchedules.length === 0}
+                                <div class="px-3 py-2 text-sm text-gray-500 dark:text-gray-400 text-center">
+                                    Tidak ada jadwal ditemukan
+                                </div>
+                            {/if}
+                        </div>
+                    {/if}
+
+                    {#if showScheduleDropdown}
+                        <div class="fixed inset-0 z-40" on:click={() => showScheduleDropdown = false}></div>
+                    {/if}
                 </div>
 
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1"
+                <div class="relative">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                         >Siswa</label
                     >
-                    <select
-                        bind:value={filterStudent}
-                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    >
-                        <option value="">Semua Siswa</option>
-                        {#each students as student}
-                            <option value={student.id}
-                                >{student.user.name} ({student.studentId})</option
+                    <div class="relative">
+                        <input
+                            type="text"
+                            bind:value={studentSearchQuery}
+                            on:focus={() => showStudentDropdown = true}
+                            placeholder="Cari siswa..."
+                            class="w-full px-3 py-2 pr-8 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        />
+                        <i class="fas fa-search absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs"></i>
+                    </div>
+
+                    {#if showStudentDropdown}
+                        <div class="absolute z-50 w-full mt-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                            <button
+                                type="button"
+                                on:click={() => {
+                                    filterStudent = "";
+                                    studentSearchQuery = "";
+                                    showStudentDropdown = false;
+                                }}
+                                class="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300"
                             >
-                        {/each}
-                    </select>
+                                Semua Siswa
+                            </button>
+                            {#each filteredStudents as student}
+                                <button
+                                    type="button"
+                                    on:click={() => {
+                                        filterStudent = student.id;
+                                        studentSearchQuery = `${student.user?.name || 'Unknown'} - Kelas ${student.class || '-'}`;
+                                        showStudentDropdown = false;
+                                    }}
+                                    class="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-900 dark:text-white flex items-center justify-between"
+                                >
+                                    <span>{student.user?.name || 'Unknown'}</span>
+                                    <span class="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
+                                        Kelas {student.class || '-'}
+                                    </span>
+                                </button>
+                            {/each}
+                            {#if filteredStudents.length === 0}
+                                <div class="px-3 py-2 text-sm text-gray-500 dark:text-gray-400 text-center">
+                                    Tidak ada siswa ditemukan
+                                </div>
+                            {/if}
+                        </div>
+                    {/if}
+
+                    {#if showStudentDropdown}
+                        <div class="fixed inset-0 z-40" on:click={() => showStudentDropdown = false}></div>
+                    {/if}
                 </div>
 
                 <div>

@@ -36,6 +36,17 @@
     let filterEndDate = "";
     let filterMethod = ""; // Payment method filter
 
+    // Filter search states
+    let filterStudentSearchQuery = "";
+    let showFilterStudentDropdown = false;
+
+    // Filtered students for filter
+    $: filteredFilterStudents = students.filter(student => 
+        !filterStudentSearchQuery || 
+        student.user?.name?.toLowerCase().includes(filterStudentSearchQuery.toLowerCase()) ||
+        student.class?.toString().includes(filterStudentSearchQuery)
+    );
+
     // Modals
     let showProofModal = false;
     let showRejectModal = false;
@@ -289,6 +300,8 @@
         filterStartDate = "";
         filterEndDate = "";
         filterMethod = "";
+        filterStudentSearchQuery = "";
+        showFilterStudentDropdown = false;
         currentPage = 1;
         fetchData();
     }
@@ -738,22 +751,62 @@
                     </select>
                 </div>
 
-                <div>
+                <div class="relative">
                     <label
                         class="block text-sm font-medium dark:text-gray-300 mb-1"
                         >Siswa</label
                     >
-                    <select
-                        bind:value={filterStudent}
-                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    >
-                        <option value="">Semua Siswa</option>
-                        {#each students as student}
-                            <option value={student.id}
-                                >{student.user.name} ({student.class})</option
+                    <div class="relative">
+                        <input
+                            type="text"
+                            bind:value={filterStudentSearchQuery}
+                            on:focus={() => showFilterStudentDropdown = true}
+                            placeholder="Cari siswa..."
+                            class="w-full px-3 py-2 pr-8 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        />
+                        <i class="fas fa-search absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs"></i>
+                    </div>
+
+                    {#if showFilterStudentDropdown}
+                        <div class="absolute z-50 w-full mt-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                            <button
+                                type="button"
+                                on:click={() => {
+                                    filterStudent = "";
+                                    filterStudentSearchQuery = "";
+                                    showFilterStudentDropdown = false;
+                                }}
+                                class="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300"
                             >
-                        {/each}
-                    </select>
+                                Semua Siswa
+                            </button>
+                            {#each filteredFilterStudents as student}
+                                <button
+                                    type="button"
+                                    on:click={() => {
+                                        filterStudent = student.id;
+                                        filterStudentSearchQuery = `${student.user?.name || 'Unknown'} - Kelas ${student.class || '-'}`;
+                                        showFilterStudentDropdown = false;
+                                    }}
+                                    class="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-900 dark:text-white flex items-center justify-between"
+                                >
+                                    <span>{student.user?.name || 'Unknown'}</span>
+                                    <span class="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
+                                        Kelas {student.class || '-'}
+                                    </span>
+                                </button>
+                            {/each}
+                            {#if filteredFilterStudents.length === 0}
+                                <div class="px-3 py-2 text-sm text-gray-500 dark:text-gray-400 text-center">
+                                    Tidak ada siswa ditemukan
+                                </div>
+                            {/if}
+                        </div>
+                    {/if}
+
+                    {#if showFilterStudentDropdown}
+                        <div class="fixed inset-0 z-40" on:click={() => showFilterStudentDropdown = false}></div>
+                    {/if}
                 </div>
 
                 <div>
