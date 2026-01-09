@@ -10,7 +10,7 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:seed": "node prisma/seed.js",
     "build": "cd frontend && npm run build",
-    "vercel-build": "prisma generate && prisma migrate deploy && cd frontend && npm install && npm run build"
+    "vercel-build": "prisma generate && cd frontend && npm install && npm run build"
   },
   "keywords": [
     "svelte",
