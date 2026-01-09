@@ -32,8 +32,8 @@
     // Filters
     let filterStatus = "";
     let filterStudent = "";
-    let filterStartDate = "";
-    let filterEndDate = "";
+    let filterMonth = "";
+    let filterYear = "";
     let filterMethod = ""; // Payment method filter
 
     // Filter search states
@@ -57,15 +57,26 @@
     let newStatus = "";
 
     // Add payment form
+    const now = new Date();
+    const currentMonth = now.toLocaleString('id-ID', { month: 'long' });
+    const currentYear = now.getFullYear();
+    
     let addPaymentForm = {
         studentId: "",
         amount: "",
         description: "",
         method: "",
+        months: [currentMonth],
+        year: currentYear,
         paymentProof: null,
     };
     let addPaymentSubmitting = false;
     let previewImage = null;
+
+    const months = [
+        'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+        'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    ];
 
     // Student search and filter
     let studentSearchQuery = "";
@@ -92,6 +103,15 @@
         return numA - numB;
     });
 
+    // Get unique years from payments
+    $: availableYears = (() => {
+        const years = new Set();
+        allPayments.forEach(p => {
+            if (p.year) years.add(p.year.toString());
+        });
+        return Array.from(years).sort((a, b) => b - a);
+    })();
+
     function selectStudent(student) {
         addPaymentForm.studentId = student.id;
         selectedStudentName = `${student.user.name} - Kelas ${student.class}`;
@@ -116,6 +136,8 @@
             amount: "",
             description: "",
             method: "",
+            months: [currentMonth],
+            year: currentYear,
             paymentProof: null,
         };
         previewImage = null;
@@ -144,8 +166,10 @@
         const amount = parseFloat(addPaymentForm.amount);
         const description = addPaymentForm.description?.trim ? addPaymentForm.description.trim() : addPaymentForm.description;
         const method = addPaymentForm.method?.trim ? addPaymentForm.method.trim() : addPaymentForm.method;
+        const months = addPaymentForm.months;
+        const year = addPaymentForm.year;
 
-        console.log("Submit Payment Data:", { studentId, amount, description, method });
+        console.log("Submit Payment Data:", { studentId, amount, description, method, months, year });
 
         // Validation
         if (!studentId) {
@@ -164,21 +188,29 @@
             toastStore.warning("Metode pembayaran wajib dipilih");
             return;
         }
+        if (!months || months.length === 0) {
+            toastStore.warning("Bulan pembayaran wajib dipilih minimal satu");
+            return;
+        }
+        if (!year) {
+            toastStore.warning("Tahun pembayaran wajib dipilih");
+            return;
+        }
 
         addPaymentSubmitting = true;
         try {
+            // Join months into a comma-separated string
+            const monthsString = months.join(', ');
+            
             const formData = new FormData();
             formData.append("studentId", studentId);
             formData.append("amount", amount.toString());
             formData.append("description", description);
             formData.append("method", method);
+            formData.append("month", monthsString);
+            formData.append("year", year.toString());
             if (addPaymentForm.paymentProof) {
                 formData.append("paymentProof", addPaymentForm.paymentProof);
-            }
-
-            console.log("FormData entries:");
-            for (let pair of formData.entries()) {
-                console.log(pair[0] + ': ' + pair[1]);
             }
 
             const response = await fetch(`${API_URL}/payments/admin`, {
@@ -189,30 +221,29 @@
                 body: formData,
             });
 
-            const responseData = await response.json();
-            console.log("Response:", response.status, responseData);
-
-            if (response.ok) {
-                toastStore.success("Pembayaran berhasil ditambahkan!");
-                showAddPaymentModal = false;
-                addPaymentForm = {
-                    studentId: "",
-                    amount: "",
-                    description: "",
-                    method: "",
-                    paymentProof: null,
-                };
-                previewImage = null;
-                selectedStudentName = "";
-                studentSearchQuery = "";
-                studentFilterClass = "";
-                await fetchData();
-            } else {
-                console.error("Payment submission error response:", response.status, responseData);
-                toastStore.error(responseData.error || "Gagal menambahkan pembayaran");
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Gagal menambahkan pembayaran');
             }
+
+            toastStore.success("Pembayaran berhasil ditambahkan!");
+            showAddPaymentModal = false;
+            addPaymentForm = {
+                studentId: "",
+                amount: "",
+                description: "",
+                method: "",
+                months: [currentMonth],
+                year: currentYear,
+                paymentProof: null,
+            };
+            previewImage = null;
+            selectedStudentName = "";
+            studentSearchQuery = "";
+            studentFilterClass = "";
+            await fetchData();
         } catch (error) {
-            console.error("Payment submission catch error:", error);
+            console.error("Payment submission error:", error);
             toastStore.error("Error: " + error.message);
         } finally {
             addPaymentSubmitting = false;
@@ -222,39 +253,54 @@
     async function fetchData() {
         loading = true;
         try {
-            const [paymentsRes, allPaymentsRes, studentsRes] =
-                await Promise.all([
-                    fetch(
-                        `${API_URL}/payments?page=${currentPage}&limit=${limit}`,
-                        {
-                            headers: {
-                                Authorization: `Bearer ${auth.getToken()}`,
-                            },
+            // Fetch paginated payments and all payments for stats
+            const promises = [
+                fetch(
+                    `${API_URL}/payments?page=${currentPage}&limit=${limit}`,
+                    {
+                        headers: {
+                            Authorization: `Bearer ${auth.getToken()}`,
                         },
-                    ),
-                    // Fetch all payments for stats (without pagination)
-                    fetch(`${API_URL}/payments?limit=1000`, {
-                        headers: { Authorization: `Bearer ${auth.getToken()}` },
-                    }),
+                    },
+                ),
+                fetch(`${API_URL}/payments?limit=10000`, {
+                    headers: { Authorization: `Bearer ${auth.getToken()}` },
+                }),
+            ];
+
+            // Only fetch students if not loaded yet
+            if (students.length === 0) {
+                promises.push(
                     fetch(`${API_URL}/students`, {
                         headers: { Authorization: `Bearer ${auth.getToken()}` },
-                    }),
-                ]);
+                    })
+                );
+            }
+
+            const results = await Promise.all(promises);
+            const paymentsRes = results[0];
+            const allPaymentsRes = results[1];
+            const studentsRes = results[2];
 
             if (paymentsRes.ok) {
                 const result = await paymentsRes.json();
-                payments = result.data || result;
+                payments = result.data || result.payments || [];
+                console.log('Payments loaded:', payments.length);
                 if (result.pagination) {
                     totalPages = result.pagination.totalPages;
                     totalPayments = result.pagination.total;
                     currentPage = result.pagination.page;
                 }
             }
+
             if (allPaymentsRes.ok) {
                 const allResult = await allPaymentsRes.json();
-                allPayments = allResult.data || allResult;
+                allPayments = allResult.data || allResult.payments || [];
             }
-            if (studentsRes.ok) students = await studentsRes.json();
+            
+            if (studentsRes && studentsRes.ok) {
+                students = await studentsRes.json();
+            }
         } catch (error) {
             console.error("Error:", error);
         } finally {
@@ -262,17 +308,76 @@
         }
     }
 
+    function getFilteredPayments() {
+        let filtered = allPayments;
+
+        // Filter by status
+        if (filterStatus) {
+            filtered = filtered.filter(p => p.status === filterStatus);
+        }
+
+        // Filter by student
+        if (filterStudent) {
+            filtered = filtered.filter(p => {
+                const studentId = p.studentId || p.student?.id;
+                return studentId === filterStudent;
+            });
+        }
+
+        // Filter by method
+        if (filterMethod) {
+            filtered = filtered.filter(p => p.method === filterMethod);
+        }
+
+        // Filter by month (check if month contains selected month)
+        if (filterMonth) {
+            filtered = filtered.filter(p => {
+                if (p.month) {
+                    const monthsList = p.month.split(',').map(m => m.trim());
+                    return monthsList.includes(filterMonth);
+                }
+                return false;
+            });
+        }
+
+        // Filter by year
+        if (filterYear) {
+            filtered = filtered.filter(p => p.year?.toString() === filterYear);
+        }
+
+        return filtered;
+    }
+
     async function applyFilters() {
+        currentPage = 1; // Reset to first page when applying NEW filters
+        await applyFiltersWithPagination();
+    }
+
+    async function applyFiltersWithPagination() {
         loading = true;
         try {
+            // Jika ada filter month atau year, kita filter client-side dari allPayments
+            if (filterMonth || filterYear) {
+                const filtered = getFilteredPayments();
+
+                // Apply pagination
+                totalPayments = filtered.length;
+                totalPages = Math.ceil(filtered.length / limit);
+                const startIndex = (currentPage - 1) * limit;
+                const endIndex = startIndex + limit;
+                payments = filtered.slice(startIndex, endIndex);
+
+                loading = false;
+                return;
+            }
+
+            // Otherwise, use server-side filtering
             const params = new URLSearchParams();
             params.append("page", currentPage.toString());
             params.append("limit", limit.toString());
             if (filterStatus) params.append("status", filterStatus);
             if (filterStudent) params.append("studentId", filterStudent);
             if (filterMethod) params.append("method", filterMethod);
-            if (filterStartDate) params.append("startDate", filterStartDate);
-            if (filterEndDate) params.append("endDate", filterEndDate);
 
             const response = await fetch(`${API_URL}/payments?${params}`, {
                 headers: { Authorization: `Bearer ${auth.getToken()}` },
@@ -280,7 +385,8 @@
 
             if (response.ok) {
                 const result = await response.json();
-                payments = result.data || result;
+                payments = result.data || result.payments || [];
+                console.log('Filtered payments loaded:', payments.length);
                 if (result.pagination) {
                     totalPages = result.pagination.totalPages;
                     totalPayments = result.pagination.total;
@@ -297,8 +403,8 @@
     function clearFilters() {
         filterStatus = "";
         filterStudent = "";
-        filterStartDate = "";
-        filterEndDate = "";
+        filterMonth = "";
+        filterYear = "";
         filterMethod = "";
         filterStudentSearchQuery = "";
         showFilterStudentDropdown = false;
@@ -309,21 +415,21 @@
     function goToPage(page) {
         if (page >= 1 && page <= totalPages) {
             currentPage = page;
-            applyFilters();
+            applyFiltersWithPagination();
         }
     }
 
     function nextPage() {
         if (currentPage < totalPages) {
             currentPage++;
-            applyFilters();
+            applyFiltersWithPagination();
         }
     }
 
     function prevPage() {
         if (currentPage > 1) {
             currentPage--;
-            applyFilters();
+            applyFiltersWithPagination();
         }
     }
 
@@ -832,25 +938,33 @@
                 <div>
                     <label
                         class="block text-sm font-medium dark:text-gray-300 mb-1"
-                        >Tanggal Mulai</label
+                        >Bulan</label
                     >
-                    <input
-                        type="date"
-                        bind:value={filterStartDate}
+                    <select
+                        bind:value={filterMonth}
                         class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
+                    >
+                        <option value="">Semua Bulan</option>
+                        {#each months as month}
+                            <option value={month}>{month}</option>
+                        {/each}
+                    </select>
                 </div>
 
                 <div>
                     <label
                         class="block text-sm font-medium dark:text-gray-300 mb-1"
-                        >Tanggal Akhir</label
+                        >Tahun</label
                     >
-                    <input
-                        type="date"
-                        bind:value={filterEndDate}
+                    <select
+                        bind:value={filterYear}
                         class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
+                    >
+                        <option value="">Semua Tahun</option>
+                        {#each availableYears as year}
+                            <option value={year}>{year}</option>
+                        {/each}
+                    </select>
                 </div>
             </div>
 
@@ -912,6 +1026,14 @@
                             >
                             <th
                                 class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase"
+                                >Bulan</th
+                            >
+                            <th
+                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase"
+                                >Tahun</th
+                            >
+                            <th
+                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase"
                                 >Deskripsi</th
                             >
                             <th
@@ -959,6 +1081,16 @@
                                         <i class="fas {getMethodIcon(payment.method)} mr-1"></i>
                                         {getMethodLabel(payment.method)}
                                     </span>
+                                </td>
+                                <td
+                                    class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300"
+                                >
+                                    {payment.month || '-'}
+                                </td>
+                                <td
+                                    class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300"
+                                >
+                                    {payment.year || '-'}
                                 </td>
                                 <td
                                     class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400"
@@ -1432,6 +1564,64 @@
                     </select>
                 </div>
 
+                <!-- Month (Multi-select) -->
+                <div>
+                    <label
+                        class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                        >Bulan <span class="text-red-500">*</span></label
+                    >
+                    <div class="grid grid-cols-3 gap-2">
+                        {#each months as month}
+                            <label class="flex items-center gap-2 p-2 border dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors {addPaymentForm.months.includes(month) ? 'bg-primary-50 dark:bg-primary-900/20 border-primary-500' : ''}">
+                                <input
+                                    type="checkbox"
+                                    value={month}
+                                    checked={addPaymentForm.months.includes(month)}
+                                    on:change={(e) => {
+                                        if (e.target.checked) {
+                                            addPaymentForm.months = [...addPaymentForm.months, month];
+                                        } else {
+                                            addPaymentForm.months = addPaymentForm.months.filter(m => m !== month);
+                                        }
+                                    }}
+                                    class="w-4 h-4 text-primary-600 rounded focus:ring-primary-500"
+                                />
+                                <span class="text-sm text-gray-700 dark:text-gray-300">{month}</span>
+                            </label>
+                        {/each}
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Pilih satu atau lebih bulan
+                    </p>
+                </div>
+
+                <!-- Year with Arrow Navigation -->
+                <div>
+                    <label
+                        class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                        >Tahun <span class="text-red-500">*</span></label
+                    >
+                    <div class="flex items-center justify-center gap-4 p-3 border dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-lg">
+                        <button
+                            type="button"
+                            on:click={() => addPaymentForm.year--}
+                            class="p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                        >
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <span class="text-2xl font-bold text-gray-900 dark:text-white min-w-[80px] text-center">
+                            {addPaymentForm.year}
+                        </span>
+                        <button
+                            type="button"
+                            on:click={() => addPaymentForm.year++}
+                            class="p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                        >
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Payment Proof (Optional) -->
                 <div>
                     <label
@@ -1470,6 +1660,8 @@
                                 amount: "",
                                 description: "",
                                 method: "",
+                                months: [currentMonth],
+                                year: currentYear,
                                 paymentProof: null,
                             };
                             previewImage = null;

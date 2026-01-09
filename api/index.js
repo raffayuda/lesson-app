@@ -1524,7 +1524,7 @@ Status: ⏳ *PENDING APPROVAL*
 // Create payment by admin (Admin only)
 app.post('/api/payments/admin', authenticate, adminOnly, upload.single('paymentProof'), async (req, res) => {
   try {
-    const { studentId, amount, description, method } = req.body;
+    const { studentId, amount, description, method, month, year } = req.body;
 
     if (!studentId || !amount || !description) {
       return res.status(400).json({ error: 'Student, amount, and description are required' });
@@ -1566,6 +1566,8 @@ app.post('/api/payments/admin', authenticate, adminOnly, upload.single('paymentP
         paymentDate: new Date(), // Use current date
         description,
         method: method || null,
+        month: month || null,
+        year: year ? parseInt(year) : null,
         proofUrl: proofUrl,
         status: 'APPROVED', // Auto-approve admin-created payments
         approvedAt: new Date()

@@ -10,7 +10,9 @@
   import AdminScheduleMaterials from "./pages/admin/ScheduleMaterials.svelte";
   import AdminStudents from "./pages/admin/Students.svelte";
   import AdminHistory from "./pages/admin/History.svelte";
+  import AdminPaymentDashboard from "./pages/admin/PaymentDashboard.svelte";
   import AdminPayments from "./pages/admin/Payments.svelte";
+  import AdminUnpaid from "./pages/admin/Unpaid.svelte";
   import StudentScanQR from "./pages/student/ScanQR.svelte";
   import StudentAttendance from "./pages/student/Attendance.svelte";
   import StudentPayment from "./pages/student/Payment.svelte";
@@ -29,8 +31,9 @@
           "/schedules/:id/materials": AdminScheduleMaterials,
           "/students": AdminStudents,
           "/history": AdminHistory,
-          "/payments": AdminPayments,
-          "/payments": AdminPayments,
+          "/payments": AdminPaymentDashboard,
+          "/payments/lunas": AdminPayments,
+          "/payments/belum-lunas": AdminUnpaid,
           "/profile": Profile,
         }
       : $auth.user.role === "STUDENT"
