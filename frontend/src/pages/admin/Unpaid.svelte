@@ -429,43 +429,71 @@
 
                 <!-- Pagination -->
                 {#if totalPages > 1}
-                    <div class="bg-gray-50 dark:bg-gray-700 px-6 py-4 border-t border-gray-200 dark:border-gray-600 flex items-center justify-between">
-                        <div class="text-sm text-gray-700 dark:text-gray-300">
-                            Menampilkan <span class="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span>
-                            - <span class="font-medium">{Math.min(currentPage * itemsPerPage, unpaidStudents.length)}</span>
-                            dari <span class="font-medium">{unpaidStudents.length}</span> siswa
+                    <div class="bg-gray-50 dark:bg-gray-700 px-4 md:px-6 py-4 border-t border-gray-200 dark:border-gray-600">
+                        <!-- Info Text - Hide on mobile -->
+                        <div class="hidden md:flex items-center justify-between mb-3">
+                            <div class="text-sm text-gray-700 dark:text-gray-300">
+                                Menampilkan <span class="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span>
+                                - <span class="font-medium">{Math.min(currentPage * itemsPerPage, unpaidStudents.length)}</span>
+                                dari <span class="font-medium">{unpaidStudents.length}</span> siswa
+                            </div>
                         </div>
-                        <div class="flex gap-2">
+
+                        <!-- Pagination Controls -->
+                        <div class="flex items-center justify-between md:justify-center gap-2">
+                            <!-- Previous Button -->
                             <button
                                 on:click={() => goToPage(currentPage - 1)}
                                 disabled={currentPage === 1}
-                                class="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                class="px-3 py-2 md:px-4 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                             >
                                 <i class="fas fa-chevron-left"></i>
                             </button>
                             
-                            {#each Array(totalPages) as _, i}
-                                {#if i + 1 === 1 || i + 1 === totalPages || (i + 1 >= currentPage - 1 && i + 1 <= currentPage + 1)}
-                                    <button
-                                        on:click={() => goToPage(i + 1)}
-                                        class="px-3 py-1 border rounded-lg text-sm font-medium transition-colors {currentPage === i + 1 
-                                            ? 'bg-primary-600 border-primary-600 text-white' 
-                                            : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'}"
-                                    >
-                                        {i + 1}
-                                    </button>
-                                {:else if i + 1 === currentPage - 2 || i + 1 === currentPage + 2}
-                                    <span class="px-2 py-1 text-gray-500">...</span>
-                                {/if}
-                            {/each}
+                            <!-- Page Numbers -->
+                            <div class="flex gap-1 md:gap-2">
+                                {#each Array(totalPages) as _, i}
+                                    <!-- Desktop: Show more pages -->
+                                    {#if i + 1 === 1 || i + 1 === totalPages || (i + 1 >= currentPage - 1 && i + 1 <= currentPage + 1)}
+                                        <button
+                                            on:click={() => goToPage(i + 1)}
+                                            class="hidden md:flex px-3 py-2 md:px-4 border rounded-lg text-sm font-medium transition-colors {currentPage === i + 1 
+                                                ? 'bg-primary-600 border-primary-600 text-white' 
+                                                : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'}"
+                                        >
+                                            {i + 1}
+                                        </button>
+                                    {:else if i + 1 === currentPage - 2 || i + 1 === currentPage + 2}
+                                        <span class="hidden md:block px-2 py-1 text-gray-500">...</span>
+                                    {/if}
 
+                                    <!-- Mobile: Only show current page and adjacent pages -->
+                                    {#if (i + 1 >= currentPage - 1 && i + 1 <= currentPage + 1)}
+                                        <button
+                                            on:click={() => goToPage(i + 1)}
+                                            class="flex md:hidden px-3 py-2 border rounded-lg text-sm font-medium transition-colors {currentPage === i + 1 
+                                                ? 'bg-primary-600 border-primary-600 text-white' 
+                                                : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'}"
+                                        >
+                                            {i + 1}
+                                        </button>
+                                    {/if}
+                                {/each}
+                            </div>
+
+                            <!-- Next Button -->
                             <button
                                 on:click={() => goToPage(currentPage + 1)}
                                 disabled={currentPage === totalPages}
-                                class="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                class="px-3 py-2 md:px-4 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                             >
                                 <i class="fas fa-chevron-right"></i>
                             </button>
+                        </div>
+
+                        <!-- Mobile Info Text - Show current page -->
+                        <div class="md:hidden text-center text-xs text-gray-600 dark:text-gray-400 mt-3">
+                            Halaman {currentPage} dari {totalPages}
                         </div>
                     </div>
                 {/if}

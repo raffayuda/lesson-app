@@ -714,6 +714,17 @@
         }).format(amount);
     }
 
+    function formatCompactCurrency(amount) {
+        if (amount >= 1000000000) {
+            return `Rp ${(amount / 1000000000).toFixed(1)}M`;
+        } else if (amount >= 1000000) {
+            return `Rp ${(amount / 1000000).toFixed(1)}jt`;
+        } else if (amount >= 1000) {
+            return `Rp ${(amount / 1000).toFixed(0)}rb`;
+        }
+        return formatCurrency(amount);
+    }
+
     function getMethodLabel(method) {
         const labels = {
             CASH: "Cash / Tunai",
@@ -740,12 +751,26 @@
         return icons[method] || "fa-circle";
     }
 
+    // Stats reactive to current displayed payments (filtered or all)
+    $: displayedPayments = (() => {
+        // Jika ada filter month/year aktif, gunakan filtered payments
+        if (filterMonth || filterYear) {
+            return getFilteredPayments();
+        }
+        // Jika ada filter lain aktif (status, student, method), gunakan payments yang di display
+        if (filterStatus || filterStudent || filterMethod) {
+            return payments;
+        }
+        // Otherwise, gunakan allPayments
+        return allPayments;
+    })();
+
     $: stats = {
-        total: allPayments.length,
-        pending: allPayments.filter((p) => p.status === "PENDING").length,
-        approved: allPayments.filter((p) => p.status === "APPROVED").length,
-        rejected: allPayments.filter((p) => p.status === "REJECTED").length,
-        totalAmount: allPayments
+        total: displayedPayments.length,
+        pending: displayedPayments.filter((p) => p.status === "PENDING").length,
+        approved: displayedPayments.filter((p) => p.status === "APPROVED").length,
+        rejected: displayedPayments.filter((p) => p.status === "REJECTED").length,
+        totalAmount: displayedPayments
             .filter((p) => p.status === "APPROVED")
             .reduce((sum, p) => sum + p.amount, 0),
     };
@@ -820,8 +845,8 @@
             <div
                 class="bg-white rounded-lg shadow p-4 text-center border-l-4 border-blue-500 dark:border-blue-400 dark:bg-gray-800"
             >
-                <p class="text-lg font-bold text-blue-600">
-                    {formatCurrency(stats.totalAmount)}
+                <p class="text-xl font-bold text-blue-600">
+                    {formatCompactCurrency(stats.totalAmount)}
                 </p>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     Total Disetujui
